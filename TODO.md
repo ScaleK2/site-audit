@@ -1,4 +1,4 @@
-# GapFinder v2 TODO
+# Site Audit TODO
 
 ## Immediate Priority
 
@@ -16,6 +16,16 @@ This is the next highest-leverage module because it turns the current manual Mir
 - [ ] Review README for accuracy after implementation starts
 - [ ] Confirm existing audit key/path helper can be reused from current scripts
 
+## Phase 0.5 — Data Contracts and Dynamic Journey Rules
+
+- [x] Create `docs/data-contracts/journey-map.schema.md`
+- [x] Create `docs/data-contracts/evidence-finding.schema.md`
+- [x] Create ADR for Site Audit naming
+- [x] Create ADR for evidence/inference/recommendation separation
+- [ ] Define config file shape for dynamic site profiles
+- [ ] Define profile-specific journey patterns for ecommerce, lead generation, standard business, blog/publisher, education, SaaS/app, marketplace/directory, nonprofit/government, and unknown
+- [ ] Define global and profile-specific keyword weights
+
 ## Phase 1 — Journey Mapper v1
 
 - [ ] Create `scripts/journey-map.js`
@@ -30,7 +40,7 @@ This is the next highest-leverage module because it turns the current manual Mir
 - [ ] Visit homepage with Playwright
 - [ ] Extract internal links
 - [ ] Filter duplicate/noisy links
-- [ ] Classify links into journey categories
+- [ ] Infer site profile(s) and classify links into dynamic journey categories
 - [ ] Visit selected priority pages
 - [ ] Capture screenshots
 - [ ] Capture page title and final URL
