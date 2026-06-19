@@ -5,6 +5,11 @@ const {
   outputPathsForAudit,
 } = require("../core/output-paths");
 const { writeJson } = require("../core/file-utils");
+const { classifyLinks } = require("./classify-links");
+const { capturePageState } = require("./capture-page-state");
+const { inferSiteProfile } = require("./infer-site-profile");
+const { prioritiseLinks } = require("./prioritise-links");
+const { selectJourneyPatterns } = require("./select-journey-patterns");
 const { capturePageState } = require("./capture-page-state");
 
 const DEFAULT_USER_AGENT =
@@ -54,10 +59,20 @@ async function runJourneyMap(inputUrl, options = {}) {
 
     homepageStep.tracking_signals.network_hosts = uniqueHosts(networkUrls);
 
-    const selectedLinks = homepageStep.discovered_links.slice(
-      0,
-      Math.max(0, (options.maxPages || 20) - 1),
-    );
+    const siteProfile = inferSiteProfile({ homepageStep });
+    const selectedPatterns = selectJourneyPatterns({ siteProfile });
+    const classifiedLinks = classifyLinks({
+      links: homepageStep.discovered_links,
+      homepageStep,
+      siteProfile,
+      selectedPatterns,
+    });
+    const selectedLinks = prioritiseLinks({
+      classifiedLinks,
+      maxLinks: Math.max(0, (options.maxPages || 20) - 1),
+    });
+
+    homepageStep.classified_candidate_links = classifiedLinks;
     homepageStep.selected_links = selectedLinks;
 
     const journeyMap = {
@@ -73,27 +88,19 @@ async function runJourneyMap(inputUrl, options = {}) {
         user_agent: options.userAgent || DEFAULT_USER_AGENT,
         runner: "scripts/journey-map.js",
       },
-      site_profile: {
-        primary_profile: "unknown",
-        profiles: [
-          {
-            profile: "unknown",
-            confidence: "unknown",
-            signals: ["profile_inference_not_implemented_in_foundation_pr"],
-          },
-        ],
-      },
+      site_profile: siteProfile,
       journeys: [
         {
           journey_id: "homepage-discovery",
           label: "Homepage discovery",
-          profile: "unknown",
-          category: "research_or_consideration",
-          priority: "high",
+          profile: siteProfile.primary_profile,
+          category:
+            selectedPatterns[0]?.category || "research_or_consideration",
+          priority: selectedPatterns[0]?.priority || "medium",
           classification: {
-            method: "foundation_homepage_capture_only",
-            confidence: "unknown",
-            matched_patterns: [],
+            method: "deterministic_profile_and_link_rules",
+            confidence: siteProfile.profiles[0]?.confidence || "unknown",
+            matched_patterns: selectedPatterns.map((pattern) => pattern.id),
           },
           steps: [homepageStep],
         },
@@ -106,11 +113,11 @@ async function runJourneyMap(inputUrl, options = {}) {
       },
       limits: [
         {
-          code: "PROFILE_INFERENCE_NOT_IMPLEMENTED",
+          code: "SECONDARY_PAGE_VISITS_NOT_IMPLEMENTED",
           message:
-            "Full site profile inference is intentionally excluded from the Journey Mapper Foundation PR.",
+            "PR 2 classifies homepage-discovered links but intentionally does not visit secondary pages.",
           impact:
-            "Only homepage discovery and candidate internal links are captured.",
+            "Selected priority links are candidate journey links awaiting a later journey expansion step.",
         },
       ],
     };
