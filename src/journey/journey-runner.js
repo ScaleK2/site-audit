@@ -7,9 +7,12 @@ const {
 const { writeJson } = require("../core/file-utils");
 const { classifyLinks } = require("./classify-links");
 const { capturePageState } = require("./capture-page-state");
+const { initialiseConsent } = require("./initialise-consent");
 const { inferSiteProfile } = require("./infer-site-profile");
+const { createNetworkRecorder } = require("./network-recorder");
 const { prioritiseLinks } = require("./prioritise-links");
 const { selectJourneyPatterns } = require("./select-journey-patterns");
+const { visitSelectedLinks } = require("./visit-selected-links");
 
 const DEFAULT_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -24,7 +27,6 @@ async function runJourneyMap(inputUrl, options = {}) {
 
   const startedAt = new Date().toISOString();
   const browser = await chromium.launch({ headless: true });
-  const networkUrls = [];
 
   try {
     const context = await browser.newContext({
@@ -36,9 +38,8 @@ async function runJourneyMap(inputUrl, options = {}) {
     page.setDefaultTimeout(options.timeoutMs || 30_000);
     page.setDefaultNavigationTimeout(options.timeoutMs || 30_000);
 
-    page.on("request", (request) => {
-      networkUrls.push(request.url());
-    });
+    const networkRecorder = createNetworkRecorder(page);
+    networkRecorder.reset();
 
     const response = await page.goto(audit.homeUrl, {
       waitUntil: "domcontentloaded",
@@ -49,6 +50,13 @@ async function runJourneyMap(inputUrl, options = {}) {
       })
       .catch(() => {});
 
+    const consent = await initialiseConsent({
+      page,
+      context,
+      networkRecorder,
+      options,
+    });
+
     const homepageStep = await capturePageState(page, audit, outputPaths, {
       stepIndex: 1,
       label: "homepage",
@@ -56,7 +64,8 @@ async function runJourneyMap(inputUrl, options = {}) {
       httpStatus: response ? response.status() : null,
     });
 
-    homepageStep.tracking_signals.network_hosts = uniqueHosts(networkUrls);
+    homepageStep.tracking_signals.network_hosts =
+      consent.post_consent.network_hosts;
 
     const siteProfile = inferSiteProfile({ homepageStep });
     const selectedPatterns = selectJourneyPatterns({ siteProfile });
@@ -74,6 +83,23 @@ async function runJourneyMap(inputUrl, options = {}) {
     homepageStep.classified_candidate_links = classifiedLinks;
     homepageStep.selected_links = selectedLinks;
 
+    const selectedSteps = await visitSelectedLinks({
+      page,
+      audit,
+      outputPaths,
+      selectedLinks,
+      networkRecorder,
+      startStepIndex: 2,
+      maxPages: options.maxPages || 20,
+      options,
+    });
+    const journeySteps = [homepageStep, ...selectedSteps].slice(
+      0,
+      options.maxPages || 20,
+    );
+
+    networkRecorder.dispose();
+
     const journeyMap = {
       schema_version: "journey-map.v1",
       audit: {
@@ -88,6 +114,7 @@ async function runJourneyMap(inputUrl, options = {}) {
         runner: "scripts/journey-map.js",
       },
       site_profile: siteProfile,
+      consent,
       journeys: [
         {
           journey_id: "homepage-discovery",
@@ -101,7 +128,7 @@ async function runJourneyMap(inputUrl, options = {}) {
             confidence: siteProfile.profiles[0]?.confidence || "unknown",
             matched_patterns: selectedPatterns.map((pattern) => pattern.id),
           },
-          steps: [homepageStep],
+          steps: journeySteps,
         },
       ],
       observations: {
@@ -112,11 +139,18 @@ async function runJourneyMap(inputUrl, options = {}) {
       },
       limits: [
         {
-          code: "SECONDARY_PAGE_VISITS_NOT_IMPLEMENTED",
+          code: "SELECTED_LINKS_ONLY",
           message:
-            "PR 2 classifies homepage-discovered links but intentionally does not visit secondary pages.",
+            "PR 3 visits only selected priority links discovered from the homepage.",
           impact:
-            "Selected priority links are candidate journey links awaiting a later journey expansion step.",
+            "This is not a recursive crawl or complete end-to-end journey traversal.",
+        },
+        {
+          code: "CONSENT_CAPTURE_IS_OBSERVATIONAL",
+          message:
+            "Consent capture records observable pre/post accept states only.",
+          impact:
+            "This does not validate legal compliance or prove full consent architecture correctness.",
         },
       ],
     };
@@ -133,21 +167,6 @@ async function runJourneyMap(inputUrl, options = {}) {
   } finally {
     await browser.close().catch(() => {});
   }
-}
-
-function uniqueHosts(urls) {
-  const hosts = [];
-  const seen = new Set();
-  for (const raw of urls) {
-    try {
-      const host = new URL(raw).hostname.toLowerCase();
-      if (!seen.has(host)) {
-        seen.add(host);
-        hosts.push(host);
-      }
-    } catch {}
-  }
-  return hosts.sort();
 }
 
 module.exports = {
