@@ -10,6 +10,30 @@ function cleanScopePath(pathname) {
   return p;
 }
 
+const COMPOUND_PUBLIC_SUFFIXES = new Set([
+  "ac.uk",
+  "co.nz",
+  "co.uk",
+  "com.au",
+  "edu.au",
+  "gov.au",
+  "net.au",
+  "org.au",
+]);
+
+function siteHostFromHostname(hostname) {
+  const host = stripWww(hostname).toLowerCase();
+  const parts = host.split(".").filter(Boolean);
+  if (parts.length <= 2) return host;
+
+  const suffix = parts.slice(-2).join(".");
+  if (COMPOUND_PUBLIC_SUFFIXES.has(suffix) && parts.length >= 3) {
+    return parts.slice(-3).join(".");
+  }
+
+  return parts.slice(-2).join(".");
+}
+
 function auditKeyFromParts(hostname, scopePath = "") {
   const host = stripWww(hostname);
   const scope = cleanScopePath(scopePath);
@@ -47,6 +71,8 @@ function parseAuditInput(input, opts = {}) {
       origin: u.origin,
       host: stripWww(u.hostname),
       hostname: u.hostname,
+      siteHost: siteHostFromHostname(u.hostname),
+      allowSubdomains: Boolean(opts.allowSubdomains),
       scopePath,
       scopeMode,
       auditKey: auditKeyFromParts(u.hostname, scopePath),
@@ -63,5 +89,6 @@ module.exports = {
   auditKeyFromParts,
   cleanScopePath,
   parseAuditInput,
+  siteHostFromHostname,
   stripWww,
 };

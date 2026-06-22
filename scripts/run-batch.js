@@ -1,28 +1,42 @@
 #!/usr/bin/env node
 
 const path = require("path");
-const { parseJourneyMapOptions } = require("../src/core/cli-options");
-const { runBatch } = require("../src/batch/batch-runner");
+const { getFlagValue, parseJourneyMapOptions } = require("../src/core/cli-options");
+const { BATCH_MODES, resolveBatchMode, runBatch } = require("../src/batch/batch-runner");
 
 async function main() {
   const args = process.argv.slice(2);
-  const urlsFile = firstPositionalArg(args);
+  if (args.includes("--help") || args.includes("-h")) {
+    printHelp();
+    return;
+  }
 
+  const urlsFile = firstPositionalArg(args);
   if (!urlsFile) {
     console.error(
-      "Usage: node scripts/run-batch.js <urls.txt> [--max-pages=20] [--force] [--scope-mode=soft|strict|global] [--scope-strict] [--scope-path=/path] [--global]",
+      "Usage: node scripts/run-batch.js <urls.txt> [--mode=default|all-subdomains|specific-urls|full-journey] [Journey Mapper options]",
     );
     process.exitCode = 1;
     return;
   }
 
   const rootDir = path.resolve(__dirname, "..");
+  const mode = resolveBatchMode(getFlagValue(args, "--mode") || "default");
+  const journeyOptions = {
+    ...parseJourneyMapOptions(args),
+    rootDir,
+  };
+
+  console.log(`Batch mode: ${mode.name}`);
+  console.log(`URL file: ${urlsFile}`);
+  console.log(`Max pages: ${journeyOptions.maxPages}`);
+  console.log(`Allow subdomains: ${mode.allowSubdomains ? "yes" : "no"}`);
+
   const result = await runBatch(urlsFile, {
     rootDir,
-    journeyOptions: {
-      ...parseJourneyMapOptions(args),
-      rootDir,
-    },
+    mode: mode.name,
+    journeyOptions,
+    onProgress: logProgress,
   });
 
   console.log(
@@ -36,6 +50,7 @@ async function main() {
 function firstPositionalArg(args) {
   const flagsWithValues = new Set([
     "--max-pages",
+    "--mode",
     "--scope-mode",
     "--scope-path",
   ]);
@@ -55,6 +70,46 @@ function firstPositionalArg(args) {
   }
 
   return null;
+}
+
+function logProgress(event) {
+  if (event.event === "start") {
+    console.log(`[${event.index}/${event.total}] Starting ${event.url}`);
+    return;
+  }
+
+  const status = event.result?.status || "unknown";
+  const suffix = event.result?.error ? ` - ${event.result.error}` : "";
+  console.log(`[${event.index}/${event.total}] ${status.toUpperCase()} ${event.url}${suffix}`);
+}
+
+function printHelp() {
+  console.log(`Usage:
+  node scripts/run-batch.js <urls.txt> [--mode=default|all-subdomains|specific-urls|full-journey] [Journey Mapper options]
+
+Modes:
+  default
+    Existing Journey Mapper behaviour with exact-host scope.
+
+  specific-urls
+    Use each URL as a start URL with exact-host scope and no subdomain expansion.
+    This does not add new path-locking behaviour.
+
+  all-subdomains
+    Existing behaviour plus same-site subdomain support. Unrelated external domains remain out of scope.
+
+  full-journey
+    Specific start URLs plus same-site subdomain support and current selected-link visiting only.
+    This is not recursive crawling.
+
+Examples:
+  node scripts/run-batch.js urls.txt
+  node scripts/run-batch.js urls.txt --mode=default
+  node scripts/run-batch.js urls.txt --mode=all-subdomains --max-pages=10
+  node scripts/run-batch.js urls.txt --mode=specific-urls
+  node scripts/run-batch.js urls.txt --mode=full-journey --max-pages=10
+
+Supported modes: ${Object.keys(BATCH_MODES).join(", ")}`);
 }
 
 main().catch((error) => {

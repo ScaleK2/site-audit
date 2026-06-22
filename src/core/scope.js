@@ -1,10 +1,15 @@
-const { cleanScopePath, stripWww } = require("./audit-key");
+const { cleanScopePath, siteHostFromHostname, stripWww } = require("./audit-key");
 
 function isSameRegistrableHostCandidate(url, audit) {
-  return (
-    stripWww(url.hostname).toLowerCase() ===
-    String(audit.host || "").toLowerCase()
-  );
+  const candidateHost = stripWww(url.hostname).toLowerCase();
+  const auditHost = String(audit.host || "").toLowerCase();
+
+  if (candidateHost === auditHost) return true;
+  if (!audit.allowSubdomains) return false;
+
+  const siteHost = String(audit.siteHost || siteHostFromHostname(auditHost))
+    .toLowerCase();
+  return candidateHost === siteHost || candidateHost.endsWith(`.${siteHost}`);
 }
 
 function isWithinScope(rawUrl, audit) {
@@ -26,5 +31,6 @@ function isWithinScope(rawUrl, audit) {
 }
 
 module.exports = {
+  isSameRegistrableHostCandidate,
   isWithinScope,
 };

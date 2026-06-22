@@ -4,10 +4,37 @@ const { parseAuditInput } = require("../core/audit-key");
 const { runJourneyMap } = require("../journey/journey-runner");
 const { exportAuditWorkbook } = require("../export/xlsx-exporter");
 
+const BATCH_MODES = {
+  default: {
+    label: "Default",
+    allowSubdomains: false,
+    description: "Existing Journey Mapper behaviour with exact-host scope.",
+  },
+  "specific-urls": {
+    label: "Specific URLs",
+    allowSubdomains: false,
+    description:
+      "Use each URL as a start URL with exact-host scope and no subdomain expansion.",
+  },
+  "all-subdomains": {
+    label: "All subdomains",
+    allowSubdomains: true,
+    description:
+      "Existing behaviour plus same-site subdomain support; unrelated external domains remain out of scope.",
+  },
+  "full-journey": {
+    label: "Full journey",
+    allowSubdomains: true,
+    description:
+      "Specific start URLs plus same-site subdomain support and current selected-link visiting only.",
+  },
+};
+
 async function runBatch(urlsFilePath, options = {}) {
   const rootDir = options.rootDir || process.cwd();
   const resolvedUrlsFilePath = path.resolve(rootDir, urlsFilePath);
   const urls = readUrlsFile(resolvedUrlsFilePath);
+  const mode = resolveBatchMode(options.mode);
   const startedAt = new Date();
   const timestamp = timestampForPath(startedAt);
   const summaryDir = path.join(rootDir, "data", "batch-runs", timestamp);
@@ -20,21 +47,41 @@ async function runBatch(urlsFilePath, options = {}) {
 
   fs.mkdirSync(summaryDir, { recursive: true });
 
-  for (const url of urls) {
-    results.push(
-      await runOneUrl({
-        url,
-        rootDir,
-        journeyOptions: options.journeyOptions || {},
-        dependencies,
-      }),
-    );
+  for (let index = 0; index < urls.length; index += 1) {
+    const url = urls[index];
+    options.onProgress?.({
+      event: "start",
+      index: index + 1,
+      total: urls.length,
+      url,
+      mode: mode.name,
+    });
+
+    const result = await runOneUrl({
+      url,
+      rootDir,
+      journeyOptions: options.journeyOptions || {},
+      mode,
+      dependencies,
+    });
+    results.push(result);
+
+    options.onProgress?.({
+      event: "finish",
+      index: index + 1,
+      total: urls.length,
+      url,
+      mode: mode.name,
+      result,
+    });
   }
 
   const completedAt = new Date();
   const summary = {
     started_at: startedAt.toISOString(),
     completed_at: completedAt.toISOString(),
+    mode: mode.name,
+    allow_subdomains: mode.allowSubdomains,
     total_urls: urls.length,
     success_count: results.filter((result) => result.status === "success").length,
     failure_count: results.filter((result) => result.status === "failed").length,
@@ -44,14 +91,16 @@ async function runBatch(urlsFilePath, options = {}) {
   fs.writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
 
   return {
+    mode,
     summary,
     summaryDir,
     summaryPath,
   };
 }
 
-async function runOneUrl({ url, rootDir, journeyOptions, dependencies }) {
-  const audit = parseAuditInput(url, journeyOptions) || {};
+async function runOneUrl({ url, rootDir, journeyOptions, mode, dependencies }) {
+  const resolvedJourneyOptions = journeyOptionsForMode(journeyOptions, mode);
+  const audit = parseAuditInput(url, resolvedJourneyOptions) || {};
   const baseResult = {
     url,
     status: "failed",
@@ -62,7 +111,7 @@ async function runOneUrl({ url, rootDir, journeyOptions, dependencies }) {
 
   try {
     const journeyResult = await dependencies.runJourneyMap(url, {
-      ...journeyOptions,
+      ...resolvedJourneyOptions,
       rootDir,
     });
     const journeyMapPath = journeyResult.outputPaths.journeyMapJson;
@@ -97,6 +146,26 @@ function readUrlsFile(filePath) {
     .filter((line) => line && !line.startsWith("#"));
 }
 
+function resolveBatchMode(modeName = "default") {
+  const normalized = String(modeName || "default").toLowerCase();
+  const config = BATCH_MODES[normalized];
+  if (!config) {
+    throw new Error(
+      `Unsupported batch mode: ${modeName}. Supported modes: ${Object.keys(
+        BATCH_MODES,
+      ).join(", ")}`,
+    );
+  }
+  return { name: normalized, ...config };
+}
+
+function journeyOptionsForMode(journeyOptions = {}, mode) {
+  return {
+    ...journeyOptions,
+    allowSubdomains: Boolean(mode?.allowSubdomains),
+  };
+}
+
 function timestampForPath(date) {
   return date
     .toISOString()
@@ -110,7 +179,10 @@ function relativePath(rootDir, filePath) {
 }
 
 module.exports = {
+  BATCH_MODES,
+  journeyOptionsForMode,
   readUrlsFile,
+  resolveBatchMode,
   runBatch,
   runOneUrl,
   timestampForPath,
