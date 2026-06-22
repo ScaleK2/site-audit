@@ -1,17 +1,19 @@
-# GapFinder v2 Roadmap
+# Site Audit Roadmap
 
 ## Current Read
 
-The highest-leverage next step is to make GapFinder journey-led.
+The highest-leverage next step is to make Site Audit journey-led while preserving useful legacy GapFinder assets.
 
 The current tool already has useful page-level audit components. The next version should preserve those assets while adding a Playwright-based Journey Mapper that can replicate the current manual Miro-style website discovery workflow.
 
 ## Phase 0 — Documentation and Structure
 
 Goal:
+
 - Prepare the repository for Codex-assisted development.
 
 Tasks:
+
 - Create `/docs/product-spec.md`.
 - Create `/docs/architecture.md`.
 - Create `/docs/roadmap.md`.
@@ -20,14 +22,35 @@ Tasks:
 - Update `README.md` to reflect the product direction and current commands.
 
 Definition of done:
+
 - A developer can understand the product direction, architecture, and next tasks without needing extra context.
+
+## Phase 0.5 — Data Contracts and Dynamic Journey Rules
+
+Goal:
+
+- Define the minimum data contracts and dynamic journey classification model before implementation.
+
+Tasks:
+
+- Define `journey-map.json` v1 schema.
+- Define `evidence-finding` schema.
+- Define dynamic site profiles such as ecommerce, lead generation, standard business, blog/publisher, education, SaaS/app, marketplace/directory, nonprofit/government, and unknown.
+- Define configurable journey patterns for each profile.
+- Define global and profile-specific keyword groups.
+
+Definition of done:
+
+- Journey Mapper v1 can produce predictable output while still adapting to different categories of websites.
 
 ## Phase 1 — Journey Mapper v1
 
 Goal:
+
 - Given a URL, generate an external journey map with screenshots and structured metadata.
 
 Build:
+
 - `scripts/journey-map.js`
 - `src/journey/discover-links.js`
 - `src/journey/classify-links.js`
@@ -49,10 +72,11 @@ data/{audit-key}/journeys/screenshots/*.png
 ```
 
 Acceptance criteria:
+
 - Visits homepage.
 - Extracts internal links.
 - Filters noise.
-- Classifies likely journey links.
+- Infers one or more site profiles and classifies likely journey links dynamically.
 - Visits top priority pages.
 - Captures screenshots.
 - Writes valid JSON.
@@ -62,9 +86,11 @@ Acceptance criteria:
 ## Phase 2 — Tracking Observer Expansion
 
 Goal:
+
 - Attach tracking evidence to each journey step.
 
 Build:
+
 - Network request capture.
 - Vendor endpoint extraction.
 - Cookie capture.
@@ -74,6 +100,7 @@ Build:
 - Form/CTA detection.
 
 Outputs added to `journey-map.json`:
+
 - `network_hosts`
 - `vendors_observed`
 - `cookies`
@@ -84,6 +111,7 @@ Outputs added to `journey-map.json`:
 - `ctas`
 
 Acceptance criteria:
+
 - Each journey step includes observable tracking evidence.
 - Vendors are supported by evidence sources.
 - Unknowns are not overstated.
@@ -91,9 +119,11 @@ Acceptance criteria:
 ## Phase 3 — Technology Stack Detector
 
 Goal:
+
 - Normalise detected technologies into a clear stack inventory.
 
 Build:
+
 - Vendor dictionary.
 - Hostname/script matching rules.
 - Confidence scoring.
@@ -106,6 +136,7 @@ data/{audit-key}/analysis/technology-stack.json
 ```
 
 Acceptance criteria:
+
 - Groups technologies by category.
 - Shows confidence level.
 - Shows evidence URL/source.
@@ -114,9 +145,11 @@ Acceptance criteria:
 ## Phase 4 — Digital Maturity Engine v1
 
 Goal:
+
 - Generate a deterministic external maturity score.
 
 Build:
+
 - `src/scoring/maturity-score.js`
 - `scripts/score-maturity.js`
 
@@ -127,6 +160,7 @@ data/{audit-key}/analysis/maturity-score.json
 ```
 
 Initial categories:
+
 - Journey Measurement Coverage.
 - Tracking Coverage.
 - Consent Readiness.
@@ -135,6 +169,7 @@ Initial categories:
 - Governance Risk.
 
 Acceptance criteria:
+
 - Score is explainable.
 - Every score component links back to evidence.
 - External limits are clearly flagged.
@@ -143,6 +178,7 @@ Acceptance criteria:
 ## Phase 5 — Integrate Journey Mapper into Main Runner
 
 Goal:
+
 - Add journey mapping to the current full pipeline.
 
 Updated flow:
@@ -159,6 +195,7 @@ Updated flow:
 ```
 
 Acceptance criteria:
+
 - Existing commands still work.
 - Journey mapping can be skipped via flag if needed.
 - Existing outputs remain backwards compatible.
@@ -166,15 +203,18 @@ Acceptance criteria:
 ## Phase 6 — Google Sheets / Slides Output
 
 Goal:
+
 - Generate structured client-ready deliverables from audit data.
 
 Build:
+
 - Google Sheets output adapter.
 - Google Slides output adapter.
 - Brand token configuration.
 - Slide layout mapping.
 
 Deck sections:
+
 - Executive summary.
 - Key journeys tested.
 - Journey map screenshots.
@@ -185,6 +225,7 @@ Deck sections:
 - Roadmap.
 
 Acceptance criteria:
+
 - Deck can be generated from JSON outputs.
 - Formatting is controlled by config/template.
 - No manual slide formatting required.
@@ -192,9 +233,11 @@ Acceptance criteria:
 ## Phase 7 — Internal Audit Engine
 
 Goal:
+
 - Use platform access to validate and enrich the external audit.
 
 Build:
+
 - GTM export/API parser.
 - GA4 API collector.
 - Google Ads conversion collector.
@@ -207,6 +250,7 @@ data/{audit-key}/internal/internal-audit.json
 ```
 
 Acceptance criteria:
+
 - Lists tags, triggers, variables, events, conversions, audiences, linked products.
 - Maps internal evidence back to user journeys where possible.
 - Flags duplicates, dead tags, naming issues, and measurement gaps.
@@ -214,15 +258,18 @@ Acceptance criteria:
 ## Phase 8 — Benchmarking Layer
 
 Goal:
+
 - Store normalised audit results and compare clients against market patterns.
 
 Build:
+
 - Benchmark database schema.
 - Industry categorisation.
 - Audit result normalisation.
 - Benchmark scoring.
 
 Acceptance criteria:
+
 - Can compare an audit against prior audits.
 - Benchmarks are separated by industry/business type where possible.
 - Benchmark claims show sample size and confidence.
