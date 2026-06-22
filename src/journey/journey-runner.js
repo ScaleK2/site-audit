@@ -117,6 +117,8 @@ async function runJourneyMap(inputUrl, options = {}) {
         completed_at: new Date().toISOString(),
         scope_mode: audit.scopeMode,
         scope_path: audit.scopePath,
+        allow_subdomains: audit.allowSubdomains,
+        site_host: audit.siteHost,
         max_pages: options.maxPages || 20,
         user_agent: options.userAgent || DEFAULT_USER_AGENT,
         runner: "scripts/journey-map.js",

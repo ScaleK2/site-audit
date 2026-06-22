@@ -1,5 +1,5 @@
 const path = require("path");
-const { discoverLinks } = require("./discover-links");
+const { discoverLinkEvidence } = require("./discover-links");
 
 function screenshotNameForStep(stepIndex, label = "page") {
   const safeLabel =
@@ -24,12 +24,13 @@ async function capturePageState(page, audit, outputPaths, options = {}) {
 
   await page.screenshot({ path: screenshotPath, fullPage: true });
 
-  const [title, links, pageSignals, trackingSignals] = await Promise.all([
+  const [title, linkEvidence, pageSignals, trackingSignals] = await Promise.all([
     page.title().catch(() => ""),
-    discoverLinks(page, audit),
+    discoverLinkEvidence(page, audit),
     extractPageSignals(page),
     extractTrackingSignals(page),
   ]);
+  const links = linkEvidence.discovered_links;
 
   return {
     step_index: stepIndex,
@@ -42,6 +43,8 @@ async function capturePageState(page, audit, outputPaths, options = {}) {
     links_found: links.length,
     selected_links: [],
     discovered_links: links,
+    raw_link_candidates: linkEvidence.raw_link_candidates,
+    filtered_out_links: linkEvidence.filtered_out_links,
     page_signals: pageSignals,
     tracking_signals: trackingSignals,
     notes: [],

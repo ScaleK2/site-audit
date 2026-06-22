@@ -12,6 +12,40 @@ function isSameRegistrableHostCandidate(url, audit) {
   return candidateHost === siteHost || candidateHost.endsWith(`.${siteHost}`);
 }
 
+function evaluateScope(rawUrl, audit = {}) {
+  const auditHost = String(audit.host || "").toLowerCase();
+  const siteHost = String(audit.siteHost || siteHostFromHostname(auditHost))
+    .toLowerCase();
+  const allowSubdomains = Boolean(audit.allowSubdomains);
+
+  try {
+    const u = new URL(rawUrl);
+    const host = stripWww(u.hostname).toLowerCase();
+    const sameHost = host === auditHost;
+    const sameSite = sameHost || host === siteHost || host.endsWith(`.${siteHost}`);
+
+    return {
+      host,
+      audit_host: auditHost,
+      site_host: siteHost,
+      allow_subdomains: allowSubdomains,
+      same_host: sameHost,
+      same_site: sameSite,
+      in_scope: sameHost || (allowSubdomains && sameSite),
+    };
+  } catch {
+    return {
+      host: "",
+      audit_host: auditHost,
+      site_host: siteHost,
+      allow_subdomains: allowSubdomains,
+      same_host: false,
+      same_site: false,
+      in_scope: false,
+    };
+  }
+}
+
 function isWithinScope(rawUrl, audit) {
   try {
     const u = new URL(rawUrl);
@@ -31,6 +65,7 @@ function isWithinScope(rawUrl, audit) {
 }
 
 module.exports = {
+  evaluateScope,
   isSameRegistrableHostCandidate,
   isWithinScope,
 };
