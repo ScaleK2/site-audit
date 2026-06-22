@@ -1,0 +1,187 @@
+const SITE_SUB_PROFILES = {
+  general_ecommerce: {
+    parentProfile: "ecommerce",
+    label: "General ecommerce",
+    minScore: 8,
+    mediumConfidenceScore: 16,
+    highConfidenceScore: 26,
+    rules: [
+      rule("sub_ecommerce_purchase_terms", 10, ["url", "text", "page"], [
+        "shop",
+        "buy",
+        "cart",
+        "basket",
+        "checkout",
+        "product",
+        "products",
+        "collection",
+        "collections",
+      ]),
+      rule("sub_ecommerce_catalog_paths", 8, ["url"], [
+        "/shop",
+        "/product",
+        "/products",
+        "/collections",
+        "/category",
+      ]),
+      rule("sub_ecommerce_cart_signal", 6, ["pageSignal"], ["has_cart_link"]),
+    ],
+  },
+  general_lead_generation: {
+    parentProfile: "lead_generation",
+    label: "General lead generation",
+    minScore: 8,
+    mediumConfidenceScore: 16,
+    highConfidenceScore: 26,
+    rules: [
+      rule("sub_lead_contact_terms", 10, ["url", "text", "page"], [
+        "contact",
+        "enquire",
+        "enquiry",
+        "quote",
+        "book",
+        "consultation",
+      ]),
+      rule("sub_lead_service_terms", 6, ["url", "text"], [
+        "services",
+        "solutions",
+        "appointment",
+        "request",
+      ]),
+      rule("sub_lead_form_signal", 6, ["pageSignal"], ["has_forms"]),
+    ],
+  },
+  property_lead_generation: {
+    parentProfile: "lead_generation",
+    label: "Property lead generation",
+    minScore: 10,
+    mediumConfidenceScore: 18,
+    highConfidenceScore: 30,
+    rules: [
+      rule("sub_property_development_terms", 10, ["url", "text", "page"], [
+        "apartment",
+        "apartments",
+        "residence",
+        "residences",
+        "property",
+        "development",
+        "display suite",
+        "floorplan",
+        "floorplans",
+        "masterplan",
+        "land estate",
+      ]),
+      rule("sub_property_lead_terms", 10, ["url", "text", "page"], [
+        "register interest",
+        "enquire",
+        "enquiry",
+        "book inspection",
+        "book appointment",
+        "display suite",
+      ]),
+      rule("sub_property_path_terms", 8, ["url"], [
+        "/property",
+        "/properties",
+        "/apartments",
+        "/developments",
+        "/communities",
+        "/living",
+      ]),
+      rule("sub_property_form_signal", 5, ["pageSignal"], ["has_forms"]),
+    ],
+  },
+  insurance: {
+    parentProfile: "lead_generation",
+    label: "Insurance",
+    minScore: 10,
+    mediumConfidenceScore: 18,
+    highConfidenceScore: 30,
+    rules: [
+      rule("sub_insurance_product_terms", 10, ["url", "text", "page"], [
+        "insurance",
+        "cover",
+        "policy",
+        "premium",
+        "claim",
+        "claims",
+      ]),
+      rule("sub_insurance_quote_terms", 8, ["url", "text", "page"], [
+        "quote",
+        "get a quote",
+        "make a claim",
+        "claims",
+      ]),
+      rule("sub_insurance_disclosure_terms", 8, ["url", "text", "page"], [
+        "pds",
+        "fsg",
+        "product disclosure statement",
+        "financial services guide",
+        "collection statement",
+      ]),
+    ],
+  },
+  finance: {
+    parentProfile: "lead_generation",
+    label: "Finance",
+    minScore: 10,
+    mediumConfidenceScore: 18,
+    highConfidenceScore: 30,
+    rules: [
+      rule("sub_finance_product_terms", 10, ["url", "text", "page"], [
+        "loan",
+        "loans",
+        "mortgage",
+        "home loan",
+        "finance",
+        "investment",
+        "superannuation",
+        "wealth",
+      ]),
+      rule("sub_finance_action_terms", 8, ["url", "text", "page"], [
+        "apply",
+        "rates",
+        "calculator",
+        "repayment",
+        "quote",
+      ]),
+      rule("sub_finance_disclosure_terms", 8, ["url", "text", "page"], [
+        "pds",
+        "fsg",
+        "product disclosure statement",
+        "financial services guide",
+        "collection statement",
+      ]),
+    ],
+  },
+  education: {
+    parentProfile: "education",
+    label: "Education",
+    minScore: 8,
+    mediumConfidenceScore: 16,
+    highConfidenceScore: 26,
+    rules: [
+      rule("sub_education_study_terms", 10, ["url", "text", "page"], [
+        "study",
+        "course",
+        "courses",
+        "degree",
+        "undergraduate",
+        "postgraduate",
+        "international",
+      ]),
+      rule("sub_education_apply_terms", 8, ["url", "text", "page"], [
+        "apply",
+        "admissions",
+        "enquire",
+      ]),
+    ],
+  },
+};
+
+function rule(id, weight, fields, terms) {
+  return { id, weight, fields, terms };
+}
+
+module.exports = {
+  SITE_SUB_PROFILES,
+};
