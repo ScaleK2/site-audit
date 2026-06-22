@@ -169,6 +169,134 @@ const JOURNEY_PATTERNS = {
       ],
     ),
   ],
+  general_ecommerce: [
+    pattern(
+      "general-ecommerce-product-purchase",
+      "Product purchase",
+      "purchase",
+      "high",
+      [
+        stage("category_or_listing", [
+          "shop",
+          "category",
+          "collection",
+          "collections",
+          "products",
+          "store",
+        ]),
+        stage("product_or_detail", ["product", "item", "details", "view"]),
+        stage("cart_or_checkout", ["cart", "basket", "bag", "checkout"]),
+      ],
+    ),
+  ],
+  general_lead_generation: [
+    pattern(
+      "general-lead-generation-contact",
+      "Lead generation / Contact",
+      "lead_capture",
+      "high",
+      [
+        stage("service_or_solution", [
+          "service",
+          "services",
+          "solution",
+          "solutions",
+        ]),
+        stage("proof_or_detail", [
+          "case study",
+          "case studies",
+          "work",
+          "clients",
+        ]),
+        stage("contact_or_enquiry", [
+          "contact",
+          "enquire",
+          "enquiry",
+          "quote",
+          "book",
+          "consultation",
+        ]),
+      ],
+    ),
+  ],
+  property_lead_generation: [
+    pattern(
+      "property-lead-generation-enquiry",
+      "Property enquiry / Registration",
+      "lead_capture",
+      "high",
+      [
+        stage("property_detail", [
+          "apartment",
+          "apartments",
+          "residence",
+          "residences",
+          "floorplan",
+          "floorplans",
+          "masterplan",
+          "location",
+        ]),
+        stage("register_or_enquire", [
+          "register interest",
+          "enquire",
+          "enquiry",
+          "book inspection",
+          "book appointment",
+          "display suite",
+        ]),
+      ],
+    ),
+  ],
+  insurance: [
+    pattern(
+      "insurance-quote-and-disclosure",
+      "Insurance quote / Disclosure",
+      "lead_capture",
+      "high",
+      [
+        stage("quote_or_claim", [
+          "quote",
+          "get a quote",
+          "claim",
+          "claims",
+          "make a claim",
+        ]),
+        stage("product_or_cover", ["insurance", "cover", "policy", "premium"]),
+        stage("disclosure", [
+          "pds",
+          "fsg",
+          "product disclosure statement",
+          "financial services guide",
+          "collection statement",
+        ]),
+      ],
+    ),
+  ],
+  finance: [
+    pattern(
+      "finance-application-and-disclosure",
+      "Finance application / Disclosure",
+      "application",
+      "high",
+      [
+        stage("product_or_rate", [
+          "loan",
+          "mortgage",
+          "rates",
+          "finance",
+          "investment",
+        ]),
+        stage("apply_or_calculate", ["apply", "calculator", "repayment", "quote"]),
+        stage("disclosure", [
+          "pds",
+          "fsg",
+          "product disclosure statement",
+          "financial services guide",
+          "collection statement",
+        ]),
+      ],
+    ),
+  ],
   unknown: [
     pattern(
       "generic-discovery-contact",

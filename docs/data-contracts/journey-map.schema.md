@@ -30,6 +30,8 @@ data/{audit-key}/journeys/screenshots/*.png
   "schema_version": "journey-map.v1",
   "audit": {},
   "site_profile": {},
+  "discovery_status": {},
+  "consent": {},
   "journeys": [],
   "observations": {},
   "limits": []
@@ -61,6 +63,7 @@ The mapper should infer one or more site profiles dynamically from observed sign
 ```json
 {
   "primary_profile": "ecommerce",
+  "sub_profile": "general_ecommerce",
   "profiles": [
     {
       "profile": "ecommerce",
@@ -71,6 +74,14 @@ The mapper should infer one or more site profiles dynamically from observed sign
       "profile": "blog_or_publisher",
       "confidence": "medium",
       "signals": ["article_url_pattern_observed"]
+    }
+  ],
+  "sub_profiles": [
+    {
+      "sub_profile": "general_ecommerce",
+      "parent_profile": "ecommerce",
+      "confidence": "high",
+      "signals": ["purchase_path_observed"]
     }
   ]
 }
@@ -90,7 +101,21 @@ nonprofit_or_government
 unknown
 ```
 
-Profiles are not mutually exclusive.
+Profiles are not mutually exclusive. Sub-profiles add vertical nuance while preserving the broad `primary_profile`; for example, `lead_generation` may have `property_lead_generation`, `insurance`, `finance`, or `general_lead_generation` as its `sub_profile`.
+
+## `discovery_status`
+
+Records whether the bounded homepage and selected-link discovery flow produced usable evidence. This is status metadata only and is not maturity scoring or a recommendation.
+
+```json
+{
+  "capture_success": true,
+  "classification_success": true,
+  "journey_selection_success": true,
+  "selected_steps_count": 5,
+  "notes": []
+}
+```
 
 ## `journeys[]`
 

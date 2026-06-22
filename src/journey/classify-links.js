@@ -4,6 +4,9 @@ const {
   UTILITY_PATH_SEGMENTS,
 } = require("../config/journey-keywords");
 const {
+  SUB_PROFILE_LINK_SCORING_RULES,
+} = require("../config/link-scoring-rules");
+const {
   buildCorpus,
   matchRule,
   normaliseText,
@@ -12,14 +15,27 @@ const {
 } = require("./rule-matching");
 
 function classifyLinks({ links, homepageStep, siteProfile, selectedPatterns }) {
+  const context = buildClassificationContext({ links, siteProfile });
   return (links || [])
     .map((link) =>
-      classifyLink({ link, homepageStep, siteProfile, selectedPatterns }),
+      classifyLink({
+        link,
+        homepageStep,
+        siteProfile,
+        selectedPatterns,
+        context,
+      }),
     )
     .sort(compareClassifiedLinks);
 }
 
-function classifyLink({ link, homepageStep, siteProfile, selectedPatterns }) {
+function classifyLink({
+  link,
+  homepageStep,
+  siteProfile,
+  selectedPatterns,
+  context,
+}) {
   const corpus = buildCorpus({ link, homepageStep });
   const matchedRules = [];
   const noiseRules = noiseMatches(link, corpus);
@@ -68,13 +84,25 @@ function classifyLink({ link, homepageStep, siteProfile, selectedPatterns }) {
     });
   }
 
+  const subProfileRules = subProfileScoringMatches({
+    corpus,
+    siteProfile,
+    context,
+  });
+  for (const rule of subProfileRules) {
+    score += rule.weight;
+    matchedRules.push(rule);
+  }
+
   if (noiseRules.length)
     score -= Math.min(
       20,
       noiseRules.reduce((sum, rule) => sum + Math.abs(rule.weight), 0),
     );
 
-  const priority = priorityFromScore(score, noiseRules.length > 0);
+  const hasBlockingNoise =
+    noiseRules.length > 0 && !hasPositiveSubProfileMatch(subProfileRules);
+  const priority = priorityFromScore(score, hasBlockingNoise);
   const confidence = confidenceForLink(score, priority, matchedRules.length);
 
   return {
@@ -86,12 +114,70 @@ function classifyLink({ link, homepageStep, siteProfile, selectedPatterns }) {
       profiles: [...profiles].sort(),
       categories: [...categories].sort(),
       stages: [...stages].sort(),
+      sub_profile: siteProfile?.sub_profile || "unknown",
       confidence,
       matched_rules: matchedRules.sort((a, b) =>
         a.rule_id.localeCompare(b.rule_id),
       ),
       noise_rules: noiseRules,
     },
+  };
+}
+
+function subProfileScoringMatches({ corpus, siteProfile, context }) {
+  const subProfile = siteProfile?.sub_profile || "unknown";
+  const rules = SUB_PROFILE_LINK_SCORING_RULES[subProfile] || [];
+  const matchedRules = [];
+
+  for (const rule of rules) {
+    if (!scoringConditionMet(rule, context)) continue;
+    const matches = matchRule(rule, corpus);
+    if (!matches.length) continue;
+    matchedRules.push({
+      rule_id: rule.id,
+      weight: rule.weight,
+      matches: matches.slice(0, 5),
+    });
+  }
+
+  return matchedRules;
+}
+
+function scoringConditionMet(rule, context) {
+  if (!rule.when) return true;
+  if (rule.when === "purchase_signal_available") {
+    return context?.purchaseSignalAvailable === true;
+  }
+  return false;
+}
+
+function hasPositiveSubProfileMatch(rules) {
+  return (rules || []).some((rule) => rule.weight > 0);
+}
+
+function buildClassificationContext({ links, siteProfile }) {
+  const subProfile = siteProfile?.sub_profile || "unknown";
+  const purchaseTerms = [
+    "shop",
+    "product",
+    "products",
+    "collection",
+    "collections",
+    "category",
+    "cart",
+    "basket",
+    "checkout",
+    "buy",
+  ];
+  const combinedLinks = (links || [])
+    .map((link) => `${urlPath(link.url)} ${normaliseText(link.text)}`)
+    .join(" ");
+
+  return {
+    subProfile,
+    purchaseSignalAvailable: purchaseTerms.some((term) =>
+      combinedLinks.includes(normaliseText(term)),
+    ),
   };
 }
 

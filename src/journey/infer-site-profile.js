@@ -1,11 +1,16 @@
 const { SITE_PROFILES } = require("../config/site-profiles");
+const { SITE_SUB_PROFILES } = require("../config/site-sub-profiles");
 const {
   buildCorpus,
   confidenceFromScore,
   matchRule,
 } = require("./rule-matching");
 
-function inferSiteProfile({ homepageStep, profileRules = SITE_PROFILES }) {
+function inferSiteProfile({
+  homepageStep,
+  profileRules = SITE_PROFILES,
+  subProfileRules = SITE_SUB_PROFILES,
+}) {
   const links = homepageStep?.discovered_links || [];
   const profileResults = Object.entries(profileRules)
     .map(([profile, config]) =>
@@ -17,6 +22,7 @@ function inferSiteProfile({ homepageStep, profileRules = SITE_PROFILES }) {
   if (!profileResults.length) {
     return {
       primary_profile: "unknown",
+      sub_profile: "unknown",
       profiles: [
         {
           profile: "unknown",
@@ -26,12 +32,22 @@ function inferSiteProfile({ homepageStep, profileRules = SITE_PROFILES }) {
           matched_rules: [],
         },
       ],
+      sub_profiles: [unknownSubProfile()],
     };
   }
 
+  const primaryProfile = profileResults[0].profile;
+  const subProfiles = inferSubProfiles({
+    homepageStep,
+    primaryProfile,
+    subProfileRules,
+  });
+
   return {
-    primary_profile: profileResults[0].profile,
+    primary_profile: primaryProfile,
+    sub_profile: subProfiles[0]?.sub_profile || "unknown",
     profiles: profileResults,
+    sub_profiles: subProfiles,
   };
 }
 
@@ -73,6 +89,60 @@ function evaluateProfile(profile, config, links, homepageStep) {
     signals: matchedRules.map((rule) => rule.rule_id),
     matched_rules: matchedRules,
   };
+}
+
+function inferSubProfiles({ homepageStep, primaryProfile, subProfileRules }) {
+  const links = homepageStep?.discovered_links || [];
+  const subProfileResults = Object.entries(subProfileRules || {})
+    .filter(([, config]) => isCompatibleSubProfile(primaryProfile, config))
+    .map(([subProfile, config]) =>
+      evaluateSubProfile(subProfile, config, links, homepageStep),
+    )
+    .filter((result) => result.confidence !== "unknown")
+    .sort(compareSubProfiles);
+
+  if (!subProfileResults.length) return [unknownSubProfile(primaryProfile)];
+  return subProfileResults;
+}
+
+function evaluateSubProfile(subProfile, config, links, homepageStep) {
+  const result = evaluateProfile(subProfile, config, links, homepageStep);
+  return {
+    sub_profile: subProfile,
+    parent_profile: config.parentProfile || "unknown",
+    label: config.label || subProfile,
+    confidence: result.confidence,
+    score: result.score,
+    signals: result.signals,
+    matched_rules: result.matched_rules,
+  };
+}
+
+function isCompatibleSubProfile(primaryProfile, config) {
+  if (!config?.parentProfile) return true;
+  if (primaryProfile === "unknown") return false;
+  return config.parentProfile === primaryProfile;
+}
+
+function unknownSubProfile(parentProfile = "unknown") {
+  return {
+    sub_profile: "unknown",
+    parent_profile: parentProfile,
+    label: "Unknown",
+    confidence: "unknown",
+    score: 0,
+    signals: ["insufficient_sub_profile_evidence"],
+    matched_rules: [],
+  };
+}
+
+function compareSubProfiles(a, b) {
+  const confidenceRank = { high: 3, medium: 2, low: 1, unknown: 0 };
+  return (
+    confidenceRank[b.confidence] - confidenceRank[a.confidence] ||
+    b.score - a.score ||
+    a.sub_profile.localeCompare(b.sub_profile)
+  );
 }
 
 function compareProfiles(a, b) {

@@ -6,6 +6,7 @@ const {
 } = require("../core/output-paths");
 const { writeJson } = require("../core/file-utils");
 const { classifyLinks } = require("./classify-links");
+const { buildDiscoveryStatus } = require("./discovery-status");
 const { capturePageState } = require("./capture-page-state");
 const { initialiseConsent } = require("./initialise-consent");
 const { inferSiteProfile } = require("./infer-site-profile");
@@ -83,6 +84,13 @@ async function runJourneyMap(inputUrl, options = {}) {
     homepageStep.classified_candidate_links = classifiedLinks;
     homepageStep.selected_links = selectedLinks;
 
+    const discoveryStatus = buildDiscoveryStatus({
+      audit,
+      homepageStep,
+      classifiedLinks,
+      selectedLinks,
+    });
+
     const selectedSteps = await visitSelectedLinks({
       page,
       audit,
@@ -114,12 +122,14 @@ async function runJourneyMap(inputUrl, options = {}) {
         runner: "scripts/journey-map.js",
       },
       site_profile: siteProfile,
+      discovery_status: discoveryStatus,
       consent,
       journeys: [
         {
           journey_id: "homepage-discovery",
           label: "Homepage discovery",
           profile: siteProfile.primary_profile,
+          sub_profile: siteProfile.sub_profile,
           category:
             selectedPatterns[0]?.category || "research_or_consideration",
           priority: selectedPatterns[0]?.priority || "medium",
