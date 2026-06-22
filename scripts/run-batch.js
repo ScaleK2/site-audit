@@ -45,6 +45,7 @@ async function main() {
   console.log(`Total URLs: ${result.summary.total_urls}`);
   console.log(`Successes: ${result.summary.success_count}`);
   console.log(`Failures: ${result.summary.failure_count}`);
+  console.log(`Skipped existing: ${result.summary.skipped_existing_count}`);
 }
 
 function firstPositionalArg(args) {
@@ -89,18 +90,18 @@ function printHelp() {
 
 Modes:
   default
-    Existing Journey Mapper behaviour with exact-host scope.
+    Existing Journey Mapper behaviour with exact-host scope. Skips existing audit folders in batch runs.
 
   specific-urls
     Use each URL as a start URL with exact-host scope and no subdomain expansion.
-    This does not add new path-locking behaviour.
+    This does not add new path-locking behaviour. Skips existing audit folders in batch runs.
 
   all-subdomains
-    Existing behaviour plus same-site subdomain support. Unrelated external domains remain out of scope.
+    Existing behaviour plus same-site subdomain support. Unrelated external domains remain out of scope. Skips existing audit folders in batch runs.
 
   full-journey
     Specific start URLs plus same-site subdomain support and current selected-link visiting only.
-    This is not recursive crawling.
+    This is not recursive crawling. Skips existing audit folders in batch runs.
 
 Examples:
   node scripts/run-batch.js urls.txt

@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 
+const fs = require("fs");
 const path = require("path");
+const { parseAuditInput } = require("../src/core/audit-key");
 const { parseJourneyMapOptions } = require("../src/core/cli-options");
+const { outputPathsForAudit } = require("../src/core/output-paths");
 const { runJourneyMap } = require("../src/journey/journey-runner");
 
 async function main() {
@@ -20,6 +23,16 @@ async function main() {
     ...parseJourneyMapOptions(args),
     rootDir: path.resolve(__dirname, ".."),
   };
+
+  const audit = parseAuditInput(inputUrl, options);
+  if (audit) {
+    const outputPaths = outputPathsForAudit(options.rootDir, audit.auditKey);
+    if (fs.existsSync(outputPaths.auditDir) && !options.force) {
+      throw new Error(
+        `Audit output already exists for ${audit.auditKey}. Use --force to overwrite.`,
+      );
+    }
+  }
 
   const result = await runJourneyMap(inputUrl, options);
   const homepageStep = result.journeyMap.journeys[0].steps[0];

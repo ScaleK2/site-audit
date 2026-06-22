@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { parseAuditInput } = require("../core/audit-key");
+const { outputPathsForAudit } = require("../core/output-paths");
 const { runJourneyMap } = require("../journey/journey-runner");
 const { exportAuditWorkbook } = require("../export/xlsx-exporter");
 
@@ -85,6 +86,9 @@ async function runBatch(urlsFilePath, options = {}) {
     total_urls: urls.length,
     success_count: results.filter((result) => result.status === "success").length,
     failure_count: results.filter((result) => result.status === "failed").length,
+    skipped_existing_count: results.filter(
+      (result) => result.status === "skipped_existing",
+    ).length,
     results,
   };
 
@@ -101,13 +105,28 @@ async function runBatch(urlsFilePath, options = {}) {
 async function runOneUrl({ url, rootDir, journeyOptions, mode, dependencies }) {
   const resolvedJourneyOptions = journeyOptionsForMode(journeyOptions, mode);
   const audit = parseAuditInput(url, resolvedJourneyOptions) || {};
+  const outputPaths = audit.auditKey
+    ? outputPathsForAudit(rootDir, audit.auditKey)
+    : null;
   const baseResult = {
     url,
     status: "failed",
     audit_key: audit.auditKey || "",
-    journey_map_path: "",
-    excel_export_path: "",
+    journey_map_path: outputPaths
+      ? relativePath(rootDir, outputPaths.journeyMapJson)
+      : "",
+    excel_export_path: outputPaths
+      ? relativePath(rootDir, expectedExcelExportPath(outputPaths.auditDir))
+      : "",
   };
+
+  if (outputPaths && fs.existsSync(outputPaths.auditDir)) {
+    return {
+      ...baseResult,
+      status: "skipped_existing",
+      error: "",
+    };
+  }
 
   try {
     const journeyResult = await dependencies.runJourneyMap(url, {
@@ -166,6 +185,10 @@ function journeyOptionsForMode(journeyOptions = {}, mode) {
   };
 }
 
+function expectedExcelExportPath(auditDir) {
+  return path.join(auditDir, "exports", "audit-export.xlsx");
+}
+
 function timestampForPath(date) {
   return date
     .toISOString()
@@ -180,6 +203,7 @@ function relativePath(rootDir, filePath) {
 
 module.exports = {
   BATCH_MODES,
+  expectedExcelExportPath,
   journeyOptionsForMode,
   readUrlsFile,
   resolveBatchMode,
