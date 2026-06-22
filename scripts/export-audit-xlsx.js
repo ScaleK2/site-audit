@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const path = require("path");
+const fs = require("fs");
 const { exportAuditWorkbook } = require("../src/export/xlsx-exporter");
 
 async function main() {
@@ -13,6 +14,8 @@ async function main() {
     process.exitCode = 1;
     return;
   }
+
+  validateInputPath(inputPath);
 
   const result = exportAuditWorkbook(inputPath, {
     rootDir: path.resolve(__dirname, ".."),
@@ -28,6 +31,19 @@ function firstPositionalArg(args) {
     if (!arg.startsWith("--")) return arg;
   }
   return null;
+}
+
+function validateInputPath(inputPath) {
+  const rootDir = path.resolve(__dirname, "..");
+  const resolvedInputPath = path.resolve(rootDir, inputPath);
+  if (
+    fs.existsSync(resolvedInputPath) &&
+    fs.statSync(resolvedInputPath).isDirectory()
+  ) {
+    throw new Error(
+      `Expected a journey-map.json file, but received a directory: ${inputPath}`,
+    );
+  }
 }
 
 main().catch((error) => {
