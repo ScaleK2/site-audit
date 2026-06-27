@@ -64,6 +64,7 @@ async function runBatch(urlsFilePath, options = {}) {
       journeyOptions: options.journeyOptions || {},
       mode,
       dependencies,
+      overwriteExisting: Boolean(options.overwriteExisting),
     });
     results.push(result);
 
@@ -83,6 +84,7 @@ async function runBatch(urlsFilePath, options = {}) {
     completed_at: completedAt.toISOString(),
     mode: mode.name,
     allow_subdomains: mode.allowSubdomains,
+    overwrite_existing: Boolean(options.overwriteExisting),
     total_urls: urls.length,
     success_count: results.filter((result) => result.status === "success").length,
     failure_count: results.filter((result) => result.status === "failed").length,
@@ -102,7 +104,14 @@ async function runBatch(urlsFilePath, options = {}) {
   };
 }
 
-async function runOneUrl({ url, rootDir, journeyOptions, mode, dependencies }) {
+async function runOneUrl({
+  url,
+  rootDir,
+  journeyOptions,
+  mode,
+  dependencies,
+  overwriteExisting = false,
+}) {
   const resolvedJourneyOptions = journeyOptionsForMode(journeyOptions, mode);
   const audit = parseAuditInput(url, resolvedJourneyOptions) || {};
   const outputPaths = audit.auditKey
@@ -120,7 +129,7 @@ async function runOneUrl({ url, rootDir, journeyOptions, mode, dependencies }) {
       : "",
   };
 
-  if (outputPaths && fs.existsSync(outputPaths.auditDir)) {
+  if (outputPaths && fs.existsSync(outputPaths.auditDir) && !overwriteExisting) {
     return {
       ...baseResult,
       status: "skipped_existing",

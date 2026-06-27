@@ -4,33 +4,18 @@ const readline = require("readline");
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const { parseAuditInput } = require("../src/core/audit-key");
-const { outputPathsForAudit } = require("../src/core/output-paths");
+const { runBatch } = require("../src/batch/batch-runner");
+const { runSiteDiscovery } = require("../src/discovery/site-discovery-runner");
 
 const MENU_OPTIONS = [
   {
-    label: "Run batch from urls.txt, skip existing",
+    label: "Run batch from urls.txt",
     run: () => runCommandOrThrow(["node", "scripts/run-batch.js", "urls.txt"]),
   },
   {
-    label: "Run batch from urls.txt, all subdomains, skip existing",
-    run: () =>
-      runCommandOrThrow([
-        "node",
-        "scripts/run-batch.js",
-        "urls.txt",
-        "--mode=all-subdomains",
-      ]),
-  },
-  {
-    label: "Run specific URL",
-    prompt: "Enter URL to audit: ",
-    run: (answer) => runSpecificUrl(answer, { force: false }),
-  },
-  {
-    label: "Run specific URL with overwrite",
-    prompt: "Enter URL to audit with overwrite: ",
-    run: (answer) => runSpecificUrl(answer, { force: true }),
+    label: "Run audit on specific URL",
+    prompt: "Enter seed URL to audit: ",
+    run: (answer) => runSpecificUrl(answer),
   },
   {
     label: "Exit",
@@ -132,44 +117,51 @@ async function runCommandOrThrow(command) {
   }
 }
 
-async function runSpecificUrl(inputUrl, options = {}) {
+async function runSpecificUrl(inputUrl) {
   const rootDir = path.resolve(__dirname, "..");
-  const audit = parseAuditInput(inputUrl, {});
-  if (!audit) {
-    throw new Error(`Invalid URL supplied: ${inputUrl}`);
-  }
-
-  const outputPaths = outputPathsForAudit(rootDir, audit.auditKey);
-  const journeyMapPath = outputPaths.journeyMapJson;
-  const excelExportPath = path.join(
-    outputPaths.auditDir,
-    "exports",
-    "audit-export.xlsx",
+  const discoveryResult = await runSiteDiscovery(inputUrl, { rootDir });
+  const discoveryUrlsPath = relativePath(rootDir, discoveryResult.urlsTxtPath);
+  const discoveryJsonPath = relativePath(
+    rootDir,
+    discoveryResult.siteDiscoveryJsonPath,
   );
-  const relativeJourneyMapPath = path.relative(rootDir, journeyMapPath);
-  const relativeExcelExportPath = path.relative(rootDir, excelExportPath);
-  const journeyCommand = ["node", "scripts/journey-map.js", inputUrl];
-  if (options.force) journeyCommand.push("--force");
 
-  await runCommandOrThrow(journeyCommand);
-  console.log(`journey-map.json path: ${relativeJourneyMapPath}`);
+  console.log(`Discovery urls.txt path: ${discoveryUrlsPath}`);
+  console.log(`site-discovery.json path: ${discoveryJsonPath}`);
 
-  const exportCommand = [
-    "node",
-    "scripts/export-audit-xlsx.js",
-    relativeJourneyMapPath,
-  ];
-  const exportCode = await runCommand(exportCommand);
-  process.exitCode = exportCode;
+  const batchResult = await runBatch(discoveryResult.urlsTxtPath, {
+    rootDir,
+    mode: "full-journey",
+    overwriteExisting: true,
+    onProgress: logBatchProgress,
+  });
 
-  if (exportCode !== 0) {
-    console.error(
-      `Audit completed, but Excel export failed. Expected audit-export.xlsx path: ${relativeExcelExportPath}`,
-    );
-    throw new Error(`Excel export failed with exit code ${exportCode}.`);
+  console.log(`Batch summary path: ${relativePath(rootDir, batchResult.summaryPath)}`);
+  const excelPaths = batchResult.summary.results
+    .filter((result) => result.status === "success" && result.excel_export_path)
+    .map((result) => result.excel_export_path);
+
+  if (excelPaths.length) {
+    console.log("Excel output paths:");
+    for (const excelPath of excelPaths) console.log(`- ${excelPath}`);
+  } else {
+    console.log("Excel output paths: none generated.");
+  }
+}
+
+function logBatchProgress(event) {
+  if (event.event === "start") {
+    console.log(`[${event.index}/${event.total}] Starting ${event.url}`);
+    return;
   }
 
-  console.log(`audit-export.xlsx path: ${relativeExcelExportPath}`);
+  const status = event.result?.status || "unknown";
+  const suffix = event.result?.error ? ` - ${event.result.error}` : "";
+  console.log(`[${event.index}/${event.total}] ${status.toUpperCase()} ${event.url}${suffix}`);
+}
+
+function relativePath(rootDir, filePath) {
+  return path.relative(rootDir, filePath).split(path.sep).join(path.posix.sep);
 }
 
 main().catch((error) => {
