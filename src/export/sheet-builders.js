@@ -1,6 +1,14 @@
 const XLSX = require("xlsx");
 
 const SHEET_DEFINITIONS = {
+  "Consultant Summary": [
+    "Section",
+    "Topic",
+    "Status",
+    "Observation",
+    "Evidence",
+    "Follow-up Question",
+  ],
   "Audit Summary": ["Field", "Value"],
   "Site Profile": [
     "Type",

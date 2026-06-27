@@ -19,6 +19,10 @@ const MENU_OPTIONS = [
     run: (answer) => runSpecificUrl(answer),
   },
   {
+    label: "Export / refresh existing audit workbook",
+    run: (_answer, prompt) => refreshExistingWorkbook(prompt),
+  },
+  {
     label: "Exit",
     run: () => {
       console.log("Exiting Site Audit menu.");
@@ -51,7 +55,7 @@ async function main() {
       }
     }
 
-    await option.run(answer);
+    await option.run(answer, prompt);
   } finally {
     prompt.close();
   }
@@ -145,6 +149,57 @@ async function runSpecificUrl(inputUrl) {
     rootDir,
   });
   console.log(`audit-export.xlsx path: ${relativePath(rootDir, exportResult.outputPath)}`);
+}
+
+async function refreshExistingWorkbook(prompt) {
+  const rootDir = path.resolve(__dirname, "..");
+  const audits = findExistingAudits(rootDir);
+
+  if (!audits.length) {
+    console.error("No existing audits found under data/ with journeys/journey-map.json.");
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log("Existing audits with journey-map.json:");
+  audits.forEach((audit, index) => {
+    console.log(`${index + 1}. ${audit.auditKey}`);
+    console.log(`   ${relativePath(rootDir, audit.journeyMapPath)}`);
+  });
+
+  const answer = (await prompt.ask("Select audit to export / refresh: ")).trim();
+  const index = Number.parseInt(answer, 10) - 1;
+  const selected = audits[index];
+
+  if (!selected) {
+    console.error("Invalid audit selection.");
+    process.exitCode = 1;
+    return;
+  }
+
+  const exportResult = exportAuditWorkbook(selected.journeyMapPath, { rootDir });
+  console.log(`Selected audit: ${selected.auditKey}`);
+  console.log(`journey-map.json path: ${relativePath(rootDir, selected.journeyMapPath)}`);
+  console.log(`audit-export.xlsx path: ${relativePath(rootDir, exportResult.outputPath)}`);
+  console.log(`Sheets: ${exportResult.sheetNames.join(", ")}`);
+}
+
+function findExistingAudits(rootDir) {
+  const dataDir = path.join(rootDir, "data");
+  if (!fs.existsSync(dataDir)) return [];
+
+  return fs.readdirSync(dataDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .filter((entry) => entry.name !== "batch-runs")
+    .map((entry) => {
+      const auditDir = path.join(dataDir, entry.name);
+      return {
+        auditKey: entry.name,
+        journeyMapPath: path.join(auditDir, "journeys", "journey-map.json"),
+      };
+    })
+    .filter((audit) => fs.existsSync(audit.journeyMapPath))
+    .sort((left, right) => left.auditKey.localeCompare(right.auditKey));
 }
 
 function buildAuditContext(siteDiscovery) {

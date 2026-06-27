@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const XLSX = require("xlsx");
+const { buildConsultantSummaryRows } = require("../interpretation/consultant-summary");
 const { buildAuditSummaryRows } = require("./audit-summary");
 const {
   SHEET_DEFINITIONS,
@@ -24,12 +25,13 @@ function exportAuditWorkbook(journeyMapPath, options = {}) {
   }
 
   const journeyMap = readJourneyMap(resolvedInputPath);
+  const siteDiscovery = readSiteDiscoveryForJourneyMap(resolvedInputPath);
   const outputDir = outputDirForJourneyMap(resolvedInputPath, journeyMap);
   fs.mkdirSync(outputDir, { recursive: true });
 
   const outputPath = path.join(outputDir, options.fileName || "audit-export.xlsx");
   const workbook = XLSX.utils.book_new();
-  const sheets = buildWorkbookSheets(journeyMap);
+  const sheets = buildWorkbookSheets(journeyMap, siteDiscovery);
 
   for (const sheet of sheets) {
     XLSX.utils.book_append_sheet(
@@ -60,6 +62,22 @@ function readJourneyMap(filePath) {
   }
 }
 
+function readSiteDiscoveryForJourneyMap(inputPath) {
+  const journeysDir = path.dirname(inputPath);
+  const auditDir = path.basename(journeysDir) === "journeys"
+    ? path.dirname(journeysDir)
+    : path.dirname(inputPath);
+  const discoveryPath = path.join(auditDir, "discovery", "site-discovery.json");
+
+  if (!fs.existsSync(discoveryPath)) return null;
+
+  try {
+    return JSON.parse(fs.readFileSync(discoveryPath, "utf8"));
+  } catch (error) {
+    throw new Error(`Unable to read site discovery JSON: ${error?.message || error}`);
+  }
+}
+
 function outputDirForJourneyMap(inputPath, journeyMap) {
   const auditKey = journeyMap?.audit?.audit_key;
   const journeysDir = path.dirname(inputPath);
@@ -74,8 +92,9 @@ function outputDirForJourneyMap(inputPath, journeyMap) {
   return path.join(auditDir, "exports");
 }
 
-function buildWorkbookSheets(journeyMap) {
+function buildWorkbookSheets(journeyMap, siteDiscovery = null) {
   return [
+    sheet("Consultant Summary", buildConsultantSummaryRows(journeyMap, siteDiscovery)),
     sheet("Audit Summary", buildAuditSummaryRows(journeyMap)),
     sheet("Site Profile", buildSiteProfileRows(journeyMap)),
     sheet("Discovery Status", buildDiscoveryStatusRows(journeyMap)),
@@ -98,5 +117,6 @@ function sheet(name, rows) {
 }
 
 module.exports = {
+  buildWorkbookSheets,
   exportAuditWorkbook,
 };
