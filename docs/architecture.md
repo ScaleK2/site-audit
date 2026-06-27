@@ -1,10 +1,11 @@
-# GapFinder v2 Architecture
+# Site Audit Architecture
 
 ## Architecture Principle
 
-GapFinder should be built as a modular pipeline.
+Site Audit should be built as a modular pipeline.
 
 Each module should:
+
 - Have a clear input contract.
 - Produce a clear output file.
 - Avoid client-facing narrative.
@@ -208,11 +209,54 @@ Suggested schema:
 }
 ```
 
-## Link Classification
+## Dynamic Journey Classification
 
-Start with deterministic keyword rules.
+Journey classification must be dynamic because Site Audit will be run against ecommerce sites, lead-generation businesses, standard brochure sites, blogs/content publishers, education providers, SaaS products, marketplaces, charities, and other categories.
 
-High-priority keywords:
+The Journey Mapper should not assume that education-style journeys such as `study`, `course`, or `apply` are always relevant. Instead, it should infer a site profile from observable signals and then apply configurable journey patterns.
+
+### Site Profile Inference
+
+The first pass should classify the site into one or more non-exclusive profiles based on URL paths, navigation labels, structured data, page titles, forms, product/listing patterns, cart/checkout paths, article patterns, and CTA language.
+
+Initial profiles:
+
+```text
+ecommerce
+lead_generation
+standard_business
+blog_or_publisher
+education
+saas_or_app
+marketplace_or_directory
+nonprofit_or_government
+unknown
+```
+
+A site can have multiple profiles. For example, an education provider may also have ecommerce-style event bookings, and a B2B SaaS site may also have a blog and lead-generation journeys.
+
+### Journey Pattern Selection
+
+After profile inference, the mapper should select journey patterns from configuration. Examples:
+
+```text
+ecommerce: home → category/listing → product/detail → cart/checkout
+lead_generation: home → service/category → service/detail → enquiry/contact
+standard_business: home → about/services → proof/case-study → contact
+blog_or_publisher: home → category/tag → article → newsletter/subscribe
+education: home → study area → course/detail → apply/enquire
+saas_or_app: home → product/features → pricing/demo/signup
+marketplace_or_directory: home → search/category → listing/detail → booking/enquiry
+nonprofit_or_government: home → program/service → eligibility/detail → apply/contact
+```
+
+These are defaults, not hardcoded assumptions. The implementation should keep profile definitions, journey patterns, keyword weights, exclusions, and per-profile priorities in configuration.
+
+### Link Classification
+
+Start with deterministic configurable rules. The first version can include global keywords and profile-specific keyword groups, then later evolve into a richer classifier.
+
+Global high-intent keywords:
 
 ```text
 study
@@ -255,6 +299,7 @@ youtube
 ```
 
 Important caveat:
+
 - Some low-priority pages may be strategically relevant for specific clients. These should be configurable, not hardcoded forever.
 
 ## Playwright Capture Contract
@@ -281,11 +326,13 @@ For every visited page, capture:
 v1 should prefer visiting link `href`s rather than uncontrolled clicking.
 
 Use clicking only when:
+
 - A CTA has no direct href.
 - A menu must be opened to reveal important navigation links.
 - A modal or popup blocks the next step.
 
 Do not:
+
 - Submit forms.
 - Click payment buttons.
 - Create accounts.
@@ -308,6 +355,7 @@ recommended_action
 ```
 
 Confidence levels:
+
 - High: directly observed.
 - Medium: inferred from multiple signals.
 - Low: weak signal; needs internal validation.
@@ -331,6 +379,7 @@ Client documentation
 Internal audit outputs should map back to external journey categories where possible.
 
 Example:
+
 - External journey detects `Application Portal`.
 - Internal GTM/GA4 audit validates whether application start/submit events exist.
 - Maturity engine scores attribution continuity.
