@@ -4,8 +4,9 @@ const readline = require("readline");
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const { runBatch } = require("../src/batch/batch-runner");
 const { runSiteDiscovery } = require("../src/discovery/site-discovery-runner");
+const { exportAuditWorkbook } = require("../src/export/xlsx-exporter");
+const { runJourneyMap } = require("../src/journey/journey-runner");
 
 const MENU_OPTIONS = [
   {
@@ -129,35 +130,41 @@ async function runSpecificUrl(inputUrl) {
   console.log(`Discovery urls.txt path: ${discoveryUrlsPath}`);
   console.log(`site-discovery.json path: ${discoveryJsonPath}`);
 
-  const batchResult = await runBatch(discoveryResult.urlsTxtPath, {
+  const journeyResult = await runJourneyMap(inputUrl, {
     rootDir,
-    mode: "full-journey",
-    overwriteExisting: true,
-    onProgress: logBatchProgress,
+    allowSubdomains: true,
+    auditContext: buildAuditContext(discoveryResult.siteDiscovery),
   });
+  const journeyMapPath = relativePath(
+    rootDir,
+    journeyResult.outputPaths.journeyMapJson,
+  );
+  console.log(`journey-map.json path: ${journeyMapPath}`);
 
-  console.log(`Batch summary path: ${relativePath(rootDir, batchResult.summaryPath)}`);
-  const excelPaths = batchResult.summary.results
-    .filter((result) => result.status === "success" && result.excel_export_path)
-    .map((result) => result.excel_export_path);
-
-  if (excelPaths.length) {
-    console.log("Excel output paths:");
-    for (const excelPath of excelPaths) console.log(`- ${excelPath}`);
-  } else {
-    console.log("Excel output paths: none generated.");
-  }
+  const exportResult = exportAuditWorkbook(journeyResult.outputPaths.journeyMapJson, {
+    rootDir,
+  });
+  console.log(`audit-export.xlsx path: ${relativePath(rootDir, exportResult.outputPath)}`);
 }
 
-function logBatchProgress(event) {
-  if (event.event === "start") {
-    console.log(`[${event.index}/${event.total}] Starting ${event.url}`);
-    return;
-  }
-
-  const status = event.result?.status || "unknown";
-  const suffix = event.result?.error ? ` - ${event.result.error}` : "";
-  console.log(`[${event.index}/${event.total}] ${status.toUpperCase()} ${event.url}${suffix}`);
+function buildAuditContext(siteDiscovery) {
+  return {
+    source: "site_discovery",
+    candidateJourneyPages: (siteDiscovery?.representative_urls || []).map(
+      (candidate) => ({
+        url: candidate.url,
+        text: candidate.page_type || candidate.section || "",
+        source: "site_discovery",
+        page_type: candidate.page_type || "",
+        selection_reason: candidate.selection_reason || "",
+        confidence: candidate.confidence || "",
+        sources: candidate.sources || [],
+      }),
+    ),
+    limits: {
+      maxCandidatePages: 12,
+    },
+  };
 }
 
 function relativePath(rootDir, filePath) {

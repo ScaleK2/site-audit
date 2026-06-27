@@ -108,6 +108,12 @@ function classifyLink({
   return {
     url: link.url,
     text: link.text,
+    source: link.source || "",
+    page_type: link.page_type || "",
+    selection_reason: link.selection_reason || "",
+    confidence: link.confidence || "",
+    sources: link.sources || [],
+    source_details: link.source_details || [],
     priority,
     score,
     classification: {

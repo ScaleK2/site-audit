@@ -5,6 +5,7 @@ const {
   outputPathsForAudit,
 } = require("../core/output-paths");
 const { writeJson } = require("../core/file-utils");
+const { buildCandidateJourneyPool } = require("./build-candidate-journey-pool");
 const { classifyLinks } = require("./classify-links");
 const { buildDiscoveryStatus } = require("./discovery-status");
 const { capturePageState } = require("./capture-page-state");
@@ -70,8 +71,13 @@ async function runJourneyMap(inputUrl, options = {}) {
 
     const siteProfile = inferSiteProfile({ homepageStep });
     const selectedPatterns = selectJourneyPatterns({ siteProfile });
+    const candidateJourneyPool = buildCandidateJourneyPool({
+      homepageLinks: homepageStep.discovered_links,
+      auditContext: options.auditContext,
+      audit,
+    });
     const classifiedLinks = classifyLinks({
-      links: homepageStep.discovered_links,
+      links: candidateJourneyPool,
       homepageStep,
       siteProfile,
       selectedPatterns,
