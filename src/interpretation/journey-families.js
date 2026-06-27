@@ -191,25 +191,73 @@ function summarizeCoverage(journeyFamilies, journeyMap, siteDiscovery) {
   const failedOrSkipped = (journeyMap?.journeys || [])
     .flatMap((journey) => journey.steps || [])
     .filter((step) => ["failed", "skipped"].includes(step.status)).length;
+  const discoveredCount = discovered.length;
+  const validatedCount = validated.length;
+  const discoveredOnlyCount = discoveredOnly.length;
+  const discoveredDomainCount = discoveredHosts.length || visitedHosts.length;
+  const visitedDomainCount = visitedHosts.length;
+  const familyCoverageRatio = ratio(validatedCount, discoveredCount);
+  const domainCoverageRatio = ratio(visitedDomainCount, discoveredDomainCount);
+  const discoveredOnlyRatio = ratio(discoveredOnlyCount, discoveredCount);
 
   let label = "Limited";
-  if (discovered.length >= 5 && validated.length >= Math.ceil(discovered.length * 0.6) && failedOrSkipped <= 1) {
+  if (
+    discoveredCount >= 3 &&
+    familyCoverageRatio >= 0.75 &&
+    (discoveredDomainCount <= 1 || domainCoverageRatio >= 0.7) &&
+    discoveredOnlyCount <= 1 &&
+    failedOrSkipped <= 1
+  ) {
     label = "Strong";
-  } else if (validated.length >= 2 || (discovered.length && validated.length >= Math.ceil(discovered.length * 0.35))) {
+  } else if (
+    validatedCount >= 2 &&
+    familyCoverageRatio >= 0.4 &&
+    (discoveredDomainCount <= 1 || domainCoverageRatio >= 0.3) &&
+    discoveredOnlyRatio < 0.65
+  ) {
     label = "Moderate";
   }
 
   return {
     label,
-    validated_count: validated.length,
-    discovered_count: discovered.length,
-    discovered_only_count: discoveredOnly.length,
-    visited_domain_count: visitedHosts.length,
-    discovered_domain_count: discoveredHosts.length,
+    validated_count: validatedCount,
+    discovered_count: discoveredCount,
+    discovered_only_count: discoveredOnlyCount,
+    visited_domain_count: visitedDomainCount,
+    discovered_domain_count: discoveredDomainCount,
     failed_or_skipped_count: failedOrSkipped,
-    observation: `Coverage: ${label}. The audit validated ${validated.length} of ${discovered.length} discovered journey families and visited ${visitedHosts.length} of ${discoveredHosts.length || visitedHosts.length} discovered same-site domains.`,
+    family_coverage_ratio: familyCoverageRatio,
+    domain_coverage_ratio: domainCoverageRatio,
+    observation: coverageObservation(label, {
+      validatedCount,
+      discoveredCount,
+      visitedDomainCount,
+      discoveredDomainCount,
+      discoveredOnlyCount,
+      failedOrSkipped,
+    }),
     evidence: `Validated families: ${joinList(validated.map((item) => item.family))}; discovered only: ${joinList(discoveredOnly.map((item) => item.family))}`,
   };
+}
+
+function coverageObservation(label, metrics) {
+  const parts = [
+    `Coverage: ${label}.`,
+    `The audit validated ${metrics.validatedCount} of ${metrics.discoveredCount} discovered journey families`,
+    `and visited ${metrics.visitedDomainCount} of ${metrics.discoveredDomainCount} discovered same-site domains.`
+  ];
+  if (metrics.discoveredOnlyCount > 0) {
+    parts.push(`${metrics.discoveredOnlyCount} discovered journey families were not represented in visited journey steps.`);
+  }
+  if (metrics.failedOrSkipped > 0) {
+    parts.push(`${metrics.failedOrSkipped} selected journey steps failed or were skipped.`);
+  }
+  return parts.join(" ");
+}
+
+function ratio(value, total) {
+  if (!total) return 0;
+  return value / total;
 }
 
 function uniqueHosts(urls) {

@@ -1,7 +1,11 @@
 const fs = require("fs");
 const path = require("path");
 const XLSX = require("xlsx");
-const { buildConsultantSummaryRows } = require("../interpretation/consultant-summary");
+const { buildConsultantSummary } = require("../interpretation/consultant-summary");
+const {
+  buildConsultantSummaryRows,
+  formatConsultantSummarySheet,
+} = require("./consultant-summary-sheet");
 const { buildAuditSummaryRows } = require("./audit-summary");
 const {
   SHEET_DEFINITIONS,
@@ -31,14 +35,13 @@ function exportAuditWorkbook(journeyMapPath, options = {}) {
 
   const outputPath = path.join(outputDir, options.fileName || "audit-export.xlsx");
   const workbook = XLSX.utils.book_new();
-  const sheets = buildWorkbookSheets(journeyMap, siteDiscovery);
+  const consultantSummary = buildConsultantSummary(journeyMap, siteDiscovery);
+  const sheets = buildWorkbookSheets(journeyMap, siteDiscovery, consultantSummary);
 
   for (const sheet of sheets) {
-    XLSX.utils.book_append_sheet(
-      workbook,
-      rowsToSheet(sheet.rows, sheet.columns),
-      sheet.name,
-    );
+    const worksheet = rowsToSheet(sheet.rows, sheet.columns);
+    if (typeof sheet.format === "function") sheet.format(worksheet, sheet.rows);
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name);
   }
 
   XLSX.writeFile(workbook, outputPath);
@@ -92,9 +95,10 @@ function outputDirForJourneyMap(inputPath, journeyMap) {
   return path.join(auditDir, "exports");
 }
 
-function buildWorkbookSheets(journeyMap, siteDiscovery = null) {
+function buildWorkbookSheets(journeyMap, siteDiscovery = null, consultantSummary = null) {
+  const summary = consultantSummary || buildConsultantSummary(journeyMap, siteDiscovery);
   return [
-    sheet("Consultant Summary", buildConsultantSummaryRows(journeyMap, siteDiscovery)),
+    sheet("Consultant Summary", buildConsultantSummaryRows(summary), formatConsultantSummarySheet),
     sheet("Audit Summary", buildAuditSummaryRows(journeyMap)),
     sheet("Site Profile", buildSiteProfileRows(journeyMap)),
     sheet("Discovery Status", buildDiscoveryStatusRows(journeyMap)),
@@ -108,11 +112,12 @@ function buildWorkbookSheets(journeyMap, siteDiscovery = null) {
   ];
 }
 
-function sheet(name, rows) {
+function sheet(name, rows, format) {
   return {
     name,
     rows,
     columns: SHEET_DEFINITIONS[name] || [],
+    format,
   };
 }
 

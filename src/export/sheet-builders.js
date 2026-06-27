@@ -3,6 +3,9 @@ const XLSX = require("xlsx");
 const SHEET_DEFINITIONS = {
   "Consultant Summary": [
     "Section",
+    "Item",
+    "Status",
+    "Summary",
     "Topic",
     "Status",
     "Observation",

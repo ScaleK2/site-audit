@@ -2,8 +2,8 @@ const {
   allSteps,
   compactUrl,
   discoveryUrls,
+  formatEvidenceList,
   hostForUrl,
-  joinList,
   selectedLinks,
   successfulStepUrls,
   unique,
@@ -13,19 +13,19 @@ const { buildFollowUpQuestions } = require("./follow-up-questions");
 const { buildJourneyFamilies, summarizeCoverage } = require("./journey-families");
 const { buildTechnologyGroups } = require("./technology-groups");
 
-function buildConsultantSummaryRows(journeyMap, siteDiscovery) {
+function buildConsultantSummary(journeyMap, siteDiscovery = null) {
   const context = buildSummaryContext(journeyMap, siteDiscovery);
-  return [
-    ...buildSiteSummaryRows(context),
-    ...buildAuditScopeRows(context),
-    ...buildDigitalEstateRows(context),
-    ...buildJourneyCoverageRows(context),
-    ...buildCoverageGapRows(context),
-    ...buildTechnologyTrackingRows(context),
-    ...buildConsentRows(context),
-    ...buildEvidenceLimitationRows(context),
-    ...buildFollowUpRows(context),
-  ];
+  return {
+    executive_snapshot: buildExecutiveSnapshot(context),
+    audit_scope: buildAuditScope(context),
+    digital_estate: buildDigitalEstate(context),
+    journey_coverage: buildJourneyCoverage(context),
+    coverage_gaps: buildCoverageGaps(context),
+    technology_tracking: buildTechnologyTracking(context),
+    consent_summary: buildConsentSummary(context),
+    evidence_limitations: buildEvidenceLimitations(context),
+    follow_up_questions: context.followUpQuestions,
+  };
 }
 
 function buildSummaryContext(journeyMap, siteDiscovery) {
@@ -60,225 +60,168 @@ function buildSummaryContext(journeyMap, siteDiscovery) {
   };
 }
 
-function buildSiteSummaryRows(context) {
-  const { journeyMap, coverage } = context;
+function buildExecutiveSnapshot(context) {
+  const { journeyMap, siteDiscovery, coverage, journeyFamilies, visitedHosts, discoveredHosts } = context;
   const audit = journeyMap.audit || {};
   const profile = journeyMap.site_profile || {};
-  return [
-    row(
-      "Site Summary",
-      "Audit overview",
-      "Observed",
-      `This workbook summarises a deterministic Site Audit for ${audit.input_url || audit.site_host || audit.audit_key || "the supplied site"}.`,
-      `Audit key: ${audit.audit_key || ""}; completed: ${audit.completed_at || ""}`,
-    ),
-    row(
-      "Site Summary",
-      "Detected profile",
-      "Observed",
-      `The site profile evidence indicates primary profile ${profile.primary_profile || "unknown"}${profile.sub_profile ? ` with sub-profile ${profile.sub_profile}` : ""}.`,
-      profile.profiles?.[0]?.confidence ? `Profile confidence: ${profile.profiles[0].confidence}` : "Profile evidence from journey-map.json",
-    ),
-    row(
-      "Site Summary",
-      "Coverage label",
-      coverage.label,
-      coverage.observation,
-      coverage.evidence,
-    ),
-  ];
-}
+  const validated = journeyFamilies.filter((item) => item.status === "Validated");
+  const discovered = journeyFamilies.filter((item) => item.status !== "Not observed");
+  const sources = [
+    siteDiscovery ? "Discovery" : "",
+    context.visitedSteps.length ? "Journey Mapping" : "",
+    journeyMap.consent ? "Consent" : "",
+    hasNetworkEvidence(journeyMap) ? "Network" : "",
+  ].filter(Boolean);
 
-function buildAuditScopeRows(context) {
-  const { journeyMap, siteDiscovery, discoveredCandidates, visitedSteps: steps } = context;
-  const audit = journeyMap.audit || {};
-  const profile = journeyMap.site_profile || {};
-  return [
-    row("Audit Scope", "Seed URL / input URL", "Observed", audit.input_url || "", audit.input_url || ""),
-    row("Audit Scope", "Audit key", "Observed", audit.audit_key || "", audit.audit_key || ""),
-    row("Audit Scope", "Primary profile", "Observed", profile.primary_profile || "unknown", profile.primary_profile || ""),
-    row("Audit Scope", "Sub-profile", profile.sub_profile ? "Observed" : "Not observed", profile.sub_profile || "No sub-profile was identified in the audit output.", profile.sub_profile || ""),
-    row("Audit Scope", "Same-site subdomains included", audit.allow_subdomains ? "Observed" : "Not observed", audit.allow_subdomains ? "Same-site subdomain support was enabled for this audit." : "Same-site subdomain support was not enabled for this audit.", `Site host: ${audit.site_host || ""}`),
-    row("Audit Scope", "Candidate pages considered", "Observed", `${discoveredCandidates.length} representative discovery candidates were available${siteDiscovery ? "." : " from journey evidence only."}`, `Discovery available: ${siteDiscovery ? "yes" : "no"}`),
-    row("Audit Scope", "Visited pages", "Observed", `${steps.length} journey steps were visited successfully.`, `Max pages: ${audit.max_pages || ""}`),
-    row("Audit Scope", "Audit completed date", audit.completed_at ? "Observed" : "Not observed", audit.completed_at || "No completed date was present in the audit output.", audit.completed_at || ""),
-    row("Audit Scope", "Site discovery available", siteDiscovery ? "Observed" : "Not observed", siteDiscovery ? "site-discovery.json was available and used for consultant summary context." : "site-discovery.json was not available; summary uses journey-map.json only.", siteDiscovery?.output?.site_discovery_json_path || ""),
-  ];
-}
-
-function buildDigitalEstateRows(context) {
-  const { discoveredHosts, discoveredCandidates, journeyFamilies } = context;
-  const discoveredFamilies = journeyFamilies.filter((item) => item.status !== "Not observed");
-  return [
-    row(
-      "Digital Estate Discovered",
-      "Domains / subdomains found",
-      discoveredHosts.length ? "Observed" : "Not observed",
-      discoveredHosts.length
-        ? `The audit evidence identified ${discoveredHosts.length} same-site domains/subdomains in discovery context.`
-        : "No same-site discovery domains were available beyond visited journey evidence.",
-      joinList(discoveredHosts, 10),
-    ),
-    row(
-      "Digital Estate Discovered",
-      "Journey families identified",
-      discoveredFamilies.length ? "Observed" : "Not observed",
-      discoveredFamilies.length
-        ? `Discovery and journey evidence identified ${discoveredFamilies.length} journey families that appear to exist.`
-        : "No journey families were identified from discovery or journey evidence.",
-      joinList(discoveredFamilies.map((item) => item.family), 10),
-    ),
-    row(
-      "Digital Estate Discovered",
-      "Representative URLs identified",
-      discoveredCandidates.length ? "Observed" : "Not observed",
-      discoveredCandidates.length
-        ? `${discoveredCandidates.length} representative URLs were available from site discovery.`
-        : "No representative site discovery URLs were available.",
-      joinList(discoveredCandidates.map((item) => compactUrl(item.url)), 10),
-    ),
-  ];
-}
-
-function buildJourneyCoverageRows(context) {
-  return context.journeyFamilies.map((family) => row(
-    "Journey Coverage",
-    family.family,
-    family.status,
-    family.observation,
-    joinList(family.evidence, 8),
-    family.status === "Discovered only"
-      ? `${family.family} evidence was discovered but not represented during the audit. Should ${family.family} be considered in scope?`
-      : "",
-  ));
-}
-
-function buildCoverageGapRows(context) {
-  const discoveredOnly = context.journeyFamilies.filter((item) => item.status === "Discovered only");
-  const failedSkipped = context.allSteps.filter((step) => ["failed", "skipped"].includes(step.status));
-  const rows = [];
-
-  rows.push(row(
-    "Coverage Gaps",
-    "Discovered-only journey families",
-    discoveredOnly.length ? "Discovered only" : "Not observed",
-    discoveredOnly.length
-      ? `${discoveredOnly.length} discovered journey families were not represented in visited journey steps.`
-      : "No discovered-only journey families were identified from available evidence.",
-    joinList(discoveredOnly.map((item) => item.family), 10),
-  ));
-
-  rows.push(row(
-    "Coverage Gaps",
-    "Visited domain coverage",
-    context.discoveredHosts.length > context.visitedHosts.length ? "Discovered only" : "Validated",
-    `The audit visited ${context.visitedHosts.length} of ${context.discoveredHosts.length || context.visitedHosts.length} discovered same-site domains/subdomains.`,
-    `Visited: ${joinList(context.visitedHosts, 8)}; discovered: ${joinList(context.discoveredHosts, 8)}`,
-  ));
-
-  rows.push(row(
-    "Coverage Gaps",
-    "Failed or skipped pages",
-    failedSkipped.length ? "Observed" : "Not observed",
-    failedSkipped.length
-      ? `${failedSkipped.length} selected journey steps failed or were skipped.`
-      : "No failed or skipped journey steps were observed.",
-    joinList(failedSkipped.map((step) => compactUrl(step.url || step.final_url)), 8),
-  ));
-
-  return rows;
-}
-
-function buildTechnologyTrackingRows(context) {
-  return context.technologyGroups.map((group) => row(
-    "Technology & Tracking",
-    group.group,
-    group.items.length ? "Observed" : "Not observed",
-    group.observation,
-    joinList(group.items, 8),
-  ));
-}
-
-function buildConsentRows(context) {
-  const consent = context.journeyMap.consent || {};
-  const preHosts = consent.pre_consent?.network_hosts || [];
-  const postHosts = consent.post_consent?.network_hosts || [];
-  return [
-    row(
-      "Consent Summary",
-      "Consent interaction",
-      consent.status ? "Observed" : "Not observed",
-      consent.status
-        ? `Consent capture status was ${consent.status}. This is observational evidence only and does not validate legal compliance.`
-        : "No consent status was available in the audit output.",
-      `Platforms observed: ${joinList(consent.platforms_observed || [], 6)}`,
-    ),
-    row(
-      "Consent Summary",
-      "Pre/post consent evidence",
-      preHosts.length || postHosts.length ? "Observed" : "Not observed",
-      preHosts.length || postHosts.length
-        ? "Network evidence was captured for pre-consent and/or post-consent states."
-        : "No pre/post consent network host evidence was available.",
-      `Pre hosts: ${preHosts.length}; post hosts: ${postHosts.length}`,
-    ),
-  ];
-}
-
-function buildEvidenceLimitationRows(context) {
-  const rows = [];
-  for (const limit of context.journeyMap.limits || []) {
-    rows.push(row(
-      "Evidence Limitations",
-      limit.code || "Limit",
-      "Observed",
-      [limit.message, limit.impact].filter(Boolean).join(" "),
-      limit.code || "",
-    ));
-  }
-
-  for (const limit of context.siteDiscovery?.limits || []) {
-    rows.push(row(
-      "Evidence Limitations",
-      limit.code || "Discovery limit",
-      "Observed",
-      [limit.message, limit.impact].filter(Boolean).join(" "),
-      limit.code || "",
-    ));
-  }
-
-  if (!rows.length) {
-    rows.push(row("Evidence Limitations", "Limits", "Not observed", "No explicit audit limits were present in the available evidence.", ""));
-  }
-  return rows;
-}
-
-function buildFollowUpRows(context) {
-  const questions = context.followUpQuestions;
-  if (!questions.length) {
-    return [row("Follow-up Questions", "No deterministic questions", "Not observed", "No deterministic follow-up questions were generated from the available evidence.", "", "")];
-  }
-  return questions.map((item) => row(
-    "Follow-up Questions",
-    item.topic,
-    "Observed",
-    "Follow-up question derived from observed or discovered evidence.",
-    item.evidence,
-    item.question,
-  ));
-}
-
-function row(section, topic, status, observation, evidence = "", followUpQuestion = "") {
   return {
-    Section: section,
-    Topic: topic,
-    Status: status,
-    Observation: observation,
-    Evidence: evidence,
-    "Follow-up Question": followUpQuestion,
+    coverage: coverage.label,
+    coverage_summary: coverage.observation,
+    primary_profile: profile.primary_profile || "unknown",
+    sub_profile: profile.sub_profile || "",
+    input_url: audit.input_url || "",
+    audit_type: "External journey audit",
+    journey_families_validated: validated.length,
+    journey_families_discovered: discovered.length,
+    domains_visited: visitedHosts.length,
+    domains_discovered: discoveredHosts.length || visitedHosts.length,
+    discovery_available: Boolean(siteDiscovery),
+    evidence_sources: sources,
   };
 }
 
+function buildAuditScope(context) {
+  const { journeyMap, siteDiscovery, discoveredCandidates, visitedSteps: steps } = context;
+  const audit = journeyMap.audit || {};
+  return {
+    seed_url: audit.input_url || "",
+    audit_key: audit.audit_key || "",
+    audit_date: audit.completed_at || "",
+    representative_discovery: Boolean(siteDiscovery),
+    same_site_subdomains_included: Boolean(audit.allow_subdomains),
+    candidate_pages: discoveredCandidates.length,
+    visited_pages: steps.length,
+    maximum_pages: audit.max_pages || "",
+    site_discovery_available: Boolean(siteDiscovery),
+  };
+}
+
+function buildDigitalEstate(context) {
+  const discoveredFamilies = context.journeyFamilies.filter((item) => item.status !== "Not observed");
+  return {
+    domains_discovered: context.discoveredHosts,
+    journey_families_discovered: discoveredFamilies.map((item) => item.family),
+    representative_pages_discovered: context.discoveredCandidates.map((candidate) => ({
+      label: candidate.text || candidate.page_type || compactUrl(candidate.url),
+      url: candidate.url,
+      page_type: candidate.page_type || "",
+    })),
+  };
+}
+
+function buildJourneyCoverage(context) {
+  return context.journeyFamilies.map((family) => ({
+    journey_family: family.family,
+    status: family.status,
+    journey_observed: family.status === "Validated"
+      ? family.narrative || "Representative journey was observed in visited audit steps."
+      : family.status === "Discovered only"
+        ? `Representative ${family.family} evidence was discovered but no ${family.family} journey was validated.`
+        : `${family.family} was not observed in discovered or visited evidence for this audit.`,
+    evidence: family.evidence,
+    follow_up_question: family.status === "Discovered only"
+      ? `${family.family} evidence was discovered but not represented during the audit. Should ${family.family} be considered in scope?`
+      : "",
+  }));
+}
+
+function buildCoverageGaps(context) {
+  const discoveredOnly = context.journeyFamilies.filter((item) => item.status === "Discovered only");
+  const failedSkipped = context.allSteps.filter((step) => ["failed", "skipped"].includes(step.status));
+  const gaps = discoveredOnly.map((family) => ({
+    area: family.family,
+    status: "Discovered only",
+    context: `${family.family} appeared in discovery evidence but was not represented in visited journey steps.`,
+    evidence: family.evidence,
+    follow_up_question: `${family.family} evidence was discovered but not represented during the audit. Should ${family.family} be considered in scope?`,
+  }));
+
+  if (context.discoveredHosts.length > context.visitedHosts.length) {
+    const unvisitedHosts = context.discoveredHosts.filter((host) => !context.visitedHosts.includes(host));
+    gaps.push({
+      area: "Same-site domains",
+      status: "Discovered only",
+      context: "Some same-site domains were discovered but were not represented by visited journey steps.",
+      evidence: unvisitedHosts,
+      follow_up_question: "Some same-site domains were discovered but not represented. Which of these domains should be considered in scope?",
+    });
+  }
+
+  if (failedSkipped.length) {
+    gaps.push({
+      area: "Failed or skipped pages",
+      status: "Observed",
+      context: `${failedSkipped.length} selected journey steps failed or were skipped during capture.`,
+      evidence: failedSkipped.map((step) => compactUrl(step.url || step.final_url)),
+      follow_up_question: "Failed or skipped pages were observed. Should these journey steps be retried or reviewed manually?",
+    });
+  }
+
+  return gaps;
+}
+
+function buildTechnologyTracking(context) {
+  return context.technologyGroups.map((group) => ({
+    category: group.group,
+    observed_evidence: group.items,
+    notes: group.items.length
+      ? `Observed ${group.group.toLowerCase()} evidence includes the listed hosts, scripts, or vendors.`
+      : `No ${group.group.toLowerCase()} evidence was observed in the captured audit data.`,
+  }));
+}
+
+function buildConsentSummary(context) {
+  const consent = context.journeyMap.consent || {};
+  const preHosts = consent.pre_consent?.network_hosts || [];
+  const postHosts = consent.post_consent?.network_hosts || [];
+  return {
+    interaction_observed: Boolean(consent.status && consent.status !== "not_observed"),
+    status: consent.status || "not_observed",
+    cmp_detected: Boolean((consent.platforms_observed || []).length),
+    platforms_observed: consent.platforms_observed || [],
+    pre_consent_evidence: Boolean(preHosts.length || (consent.pre_consent?.script_sources || []).length),
+    post_consent_evidence: Boolean(postHosts.length || (consent.post_consent?.script_sources || []).length),
+    network_evidence: Boolean(preHosts.length || postHosts.length),
+    note: "Consent evidence is observational and does not validate legal compliance.",
+  };
+}
+
+function buildEvidenceLimitations(context) {
+  const journeyLimits = (context.journeyMap.limits || []).map((limit) => ({
+    topic: limit.code || "Audit limit",
+    context: [limit.message, limit.impact].filter(Boolean).join(" "),
+    evidence: limit.code || "",
+  }));
+  const discoveryLimits = (context.siteDiscovery?.limits || []).map((limit) => ({
+    topic: limit.code || "Discovery limit",
+    context: [limit.message, limit.impact].filter(Boolean).join(" "),
+    evidence: limit.code || "",
+  }));
+  return [...journeyLimits, ...discoveryLimits];
+}
+
+function hasNetworkEvidence(journeyMap) {
+  return allSteps(journeyMap).some((step) => (
+    (step.tracking_signals?.network_hosts || []).length ||
+    (step.tracking_signals?.script_sources || []).length ||
+    (step.tracking_signals?.vendors_observed || []).length
+  ));
+}
+
+function summaryList(values, limit = 6) {
+  return formatEvidenceList(values, { limit });
+}
+
 module.exports = {
-  buildConsultantSummaryRows,
+  buildConsultantSummary,
+  summaryList,
 };

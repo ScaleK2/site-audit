@@ -1,5 +1,8 @@
 const path = require("path");
 
+const DEFAULT_LIST_LIMIT = 6;
+const DEFAULT_CELL_LIMIT = 600;
+
 function allSteps(journeyMap) {
   return (journeyMap?.journeys || []).flatMap((journey) => journey.steps || []);
 }
@@ -104,10 +107,37 @@ function uniqueBy(items, keyFn) {
   return [...seen.values()];
 }
 
-function joinList(values, limit = 8) {
-  const items = unique(values).slice(0, limit);
-  const suffix = unique(values).length > limit ? `; +${unique(values).length - limit} more` : "";
-  return `${items.join("; ")}${suffix}`;
+function joinList(values, limit = DEFAULT_LIST_LIMIT) {
+  return formatEvidenceList(values, { limit, separator: "; " });
+}
+
+function formatEvidenceList(values, options = {}) {
+  const limit = options.limit || DEFAULT_LIST_LIMIT;
+  const separator = options.separator || "\n";
+  const uniqueValues = unique((values || []).map((value) => safeCellValue(value)).filter(Boolean));
+  const visible = uniqueValues.slice(0, limit);
+  const suffix = uniqueValues.length > limit ? [`+${uniqueValues.length - limit} more`] : [];
+  return truncateCell([...visible, ...suffix].join(separator), options.maxLength || DEFAULT_CELL_LIMIT);
+}
+
+function safeCellValue(value) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return formatEvidenceList(value);
+  if (typeof value === "object") {
+    return Object.entries(value)
+      .map(([key, item]) => `${labelFromKey(key)}: ${safeCellValue(item)}`)
+      .filter((item) => item && !item.endsWith(": "))
+      .join("; ");
+  }
+  return String(value);
+}
+
+function truncateCell(value, maxLength = DEFAULT_CELL_LIMIT) {
+  const text = String(value || "");
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 11)).trim()}… +more`;
 }
 
 function titleCase(value) {
@@ -115,6 +145,10 @@ function titleCase(value) {
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function labelFromKey(value) {
+  return titleCase(String(value || "").replace(/[_-]+/g, " "));
 }
 
 function auditDirForJourneyMapPath(journeyMapPath) {
@@ -129,13 +163,16 @@ module.exports = {
   auditDirForJourneyMapPath,
   compactUrl,
   discoveryUrls,
+  formatEvidenceList,
   hostForUrl,
   joinList,
   labelForUrl,
   normalizeUrl,
+  safeCellValue,
   selectedLinks,
   successfulStepUrls,
   titleCase,
+  truncateCell,
   unique,
   uniqueBy,
   visitedSteps,
