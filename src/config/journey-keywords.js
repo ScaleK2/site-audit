@@ -1,0 +1,63 @@
+const GLOBAL_HIGH_INTENT_KEYWORDS = [
+  "apply",
+  "book",
+  "buy",
+  "checkout",
+  "contact",
+  "demo",
+  "download",
+  "enquire",
+  "enquiry",
+  "get started",
+  "quote",
+  "register",
+  "request",
+  "shop",
+  "sign up",
+  "subscribe",
+];
+
+const NOISE_KEYWORDS = [
+  "accessibility",
+  "alumni",
+  "careers",
+  "cookie",
+  "cookie policy",
+  "cookies",
+  "copyright",
+  "facebook",
+  "footer",
+  "instagram",
+  "linkedin",
+  "login",
+  "media",
+  "newsroom",
+  "policy",
+  "privacy",
+  "skip",
+  "sitemap",
+  "social",
+  "staff",
+  "terms",
+  "terms of use",
+  "twitter",
+  "youtube",
+];
+
+const UTILITY_PATH_SEGMENTS = [
+  "accessibility",
+  "careers",
+  "cookie",
+  "cookies",
+  "legal",
+  "login",
+  "privacy",
+  "sitemap",
+  "terms",
+];
+
+module.exports = {
+  GLOBAL_HIGH_INTENT_KEYWORDS,
+  NOISE_KEYWORDS,
+  UTILITY_PATH_SEGMENTS,
+};
