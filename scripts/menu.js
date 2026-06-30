@@ -23,6 +23,10 @@ const MENU_OPTIONS = [
     run: (_answer, prompt) => refreshExistingWorkbook(prompt),
   },
   {
+    label: "Generate Word report from existing audit",
+    run: (_answer, prompt) => generateExistingReport(prompt),
+  },
+  {
     label: "Exit",
     run: () => {
       console.log("Exiting Site Audit menu.");
@@ -182,6 +186,39 @@ async function refreshExistingWorkbook(prompt) {
   console.log(`journey-map.json path: ${relativePath(rootDir, selected.journeyMapPath)}`);
   console.log(`audit-export.xlsx path: ${relativePath(rootDir, exportResult.outputPath)}`);
   console.log(`Sheets: ${exportResult.sheetNames.join(", ")}`);
+}
+
+async function generateExistingReport(prompt) {
+  const rootDir = path.resolve(__dirname, "..");
+  const audits = findExistingAudits(rootDir);
+
+  if (!audits.length) {
+    console.error("No existing audits found under data/ with journeys/journey-map.json.");
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log("Existing audits with journey-map.json:");
+  audits.forEach((audit, index) => {
+    console.log(`${index + 1}. ${audit.auditKey}`);
+    console.log(`   ${relativePath(rootDir, audit.journeyMapPath)}`);
+  });
+
+  const answer = (await prompt.ask("Select audit to generate Word report: ")).trim();
+  const index = Number.parseInt(answer, 10) - 1;
+  const selected = audits[index];
+
+  if (!selected) {
+    console.error("Invalid audit selection.");
+    process.exitCode = 1;
+    return;
+  }
+
+  await runCommandOrThrow([
+    "node",
+    "scripts/generate-audit-report.js",
+    selected.auditKey,
+  ]);
 }
 
 function findExistingAudits(rootDir) {
