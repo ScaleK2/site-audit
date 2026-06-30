@@ -1,14 +1,20 @@
-# GapFinder v2
+# Site Audit
 
-Digital Maturity Diagnostic Platform
+Digital Maturity Assessment Platform.
 
-GapFinder v2 is evolving from a tracking readiness audit tool into a journey-led digital maturity diagnostic system.
+Site Audit is evolving the legacy GapFinder tracking readiness audit pipeline into a journey-led digital maturity diagnostic system.
 
 The product goal is to help consultants understand whether a business can reliably measure the user journeys that matter — before and after internal platform access is granted.
 
+## Naming
+
+- **Site Audit** is the product and repository name going forward.
+- **GapFinder** refers to the existing/legacy audit scripts and report assets that will be migrated incrementally.
+- Existing commands such as `scripts/run-gapfinder.js` remain documented until replacement commands are implemented.
+
 ## Current Capability
 
-GapFinder currently supports:
+The existing GapFinder pipeline currently supports:
 
 - Website crawling.
 - HAR/network capture.
@@ -25,7 +31,7 @@ node scripts/run-gapfinder.js https://example.com
 
 ## Product Direction
 
-The next product layer is a Playwright-powered Journey Mapper.
+The next product layer is a Playwright-powered External Audit / Journey Mapper.
 
 Target flow:
 
@@ -43,6 +49,8 @@ Digital Maturity Engine
 Internal Audit Engine
   ↓
 Google Sheets / Google Slides / DOCX outputs
+  ↓
+Benchmark Dataset
 ```
 
 ## Repository Structure
@@ -52,6 +60,8 @@ Google Sheets / Google Slides / DOCX outputs
   product-spec.md
   architecture.md
   roadmap.md
+  data-contracts/
+  decisions/
 
 /src
   reusable app logic
@@ -90,8 +100,8 @@ python --version
 ## Installation
 
 ```bash
-git clone https://github.com/ScaleK2/gapfinder-v2.git
-cd gapfinder-v2
+git clone https://github.com/ScaleK2/site-audit.git
+cd site-audit
 npm install
 npx playwright install
 pip install python-docx reportlab pandas openpyxl
@@ -120,12 +130,6 @@ PAGESPEED_API_KEY=your_key_here
 `PSI_API_KEY` is also supported as a fallback.
 
 ## Running the Existing Pipeline
-
-Interactive menu:
-
-```bash
-node run.js
-```
 
 Standard audit:
 
@@ -157,6 +161,8 @@ Skip PDF export:
 node scripts/run-gapfinder.js https://example.com --no-pdf
 ```
 
+> Note: older docs referenced `node run.js`, but this repository currently uses `scripts/run-gapfinder.js` as the available runner.
+
 ## Planned Journey Mapper Command
 
 Target command:
@@ -176,7 +182,8 @@ The Journey Mapper should:
 
 - Visit the homepage.
 - Extract internal links.
-- Classify links by journey relevance.
+- Dynamically infer the site type and likely journey patterns from the URL set and page signals.
+- Classify links by journey relevance using configurable rules, not a fixed industry-only list.
 - Visit selected priority pages.
 - Capture screenshots and metadata.
 - Capture observable tracking/technology signals.
@@ -190,6 +197,10 @@ Read these first:
 - `docs/product-spec.md`
 - `docs/architecture.md`
 - `docs/roadmap.md`
+- `docs/data-contracts/journey-map.schema.md`
+- `docs/data-contracts/evidence-finding.schema.md`
+- `docs/decisions/0001-product-rename.md`
+- `docs/decisions/0002-evidence-inference-recommendation.md`
 - `TODO.md`
 
 ## Existing Output Location
@@ -234,6 +245,7 @@ data/anker.com__au/
 5. Score digital maturity
 6. Generate recommendations
 7. Generate client deliverables
+8. Store normalised benchmark record
 ```
 
 ## Development Rules
@@ -253,7 +265,7 @@ After changes:
 
 ```bash
 git add .
-git commit -m "Update GapFinder documentation"
+git commit -m "Update Site Audit documentation"
 git push
 ```
 

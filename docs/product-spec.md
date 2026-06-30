@@ -1,12 +1,12 @@
-# GapFinder v2 Product Specification
+# Site Audit Product Specification
 
 ## Product Name
 
-GapFinder v2 — Digital Maturity Diagnostic Platform
+Site Audit — Digital Maturity Diagnostic Platform
 
 ## Current Context
 
-GapFinder currently operates as a digital tracking and performance readiness audit pipeline. It can crawl a website, capture network activity, identify tracking/vendor signals, fetch PageSpeed Insights data, generate scorecards, and produce client-facing reports.
+The existing GapFinder pipeline currently operates as a digital tracking and performance readiness audit pipeline. It can crawl a website, capture network activity, identify tracking/vendor signals, fetch PageSpeed Insights data, generate scorecards, and produce client-facing reports.
 
 The next product evolution is to move from a page-level audit tool into a journey-led diagnostic system.
 
@@ -18,7 +18,7 @@ Most audits answer:
 
 > What tags exist?
 
-GapFinder should answer:
+Site Audit should answer:
 
 > Can this business reliably measure the journeys that matter?
 
@@ -29,36 +29,45 @@ The product should combine external website observation, internal platform audit
 ### Module 1 — External Journey Mapper
 
 Purpose:
+
 - Discover and map important website journeys without platform access.
 - Capture screenshots, URLs, page titles, navigation paths, and conversion stages.
 - Produce a structured journey map that can be reviewed by consultants and later used by the scoring/reporting layers.
 
 Primary input:
+
 - Website URL.
 
 Primary outputs:
+
 - `journey-map.json`
 - Screenshots for each journey step.
 - URL/path inventory.
 - Journey classification metadata.
 
-Example journeys:
-- Homepage → Study → Undergraduate → Course Search → Course Page.
-- Homepage → Postgraduate → Guide Download.
-- Homepage → International Students → Enquiry Form.
-- Homepage → Professional Development → Course Finder.
-- Homepage → Apply → Application Portal.
-- Homepage → Contact → Form.
+Example journey patterns:
+
+- Ecommerce: Homepage → Category → Product → Cart/Checkout.
+- Lead generation: Homepage → Service → Case Study/Proof → Enquiry Form.
+- Standard business: Homepage → Services/About → Contact.
+- Blog/publisher: Homepage → Topic/Category → Article → Newsletter/Subscribe.
+- Education: Homepage → Study Area → Course Search → Course Page → Apply/Enquire.
+- SaaS/product: Homepage → Features/Product → Pricing/Demo/Signup.
+
+Journey patterns must be inferred dynamically from the target URL and observed site signals. They should not be limited to one vertical, and profile-specific rules should be configurable.
 
 Key rule:
+
 - The tool should not blindly click every link in production mode. It should discover internal links, classify them, prioritise likely commercial/user journeys, and then visit/click selected paths.
 
 ### Module 2 — Tracking Observer
 
 Purpose:
+
 - Observe what tracking and event activity is visible from each journey step.
 
 Captured evidence:
+
 - Network requests.
 - Tracking vendor endpoints.
 - Cookies.
@@ -71,21 +80,26 @@ Captured evidence:
 - Iframes and embedded systems.
 
 Important distinction:
+
 - External audit findings must be evidence-based.
 - Use `Observed`, `Not observed`, and `Unknown` rather than overclaiming.
 
 Example acceptable wording:
+
 - `Application tracking was not externally observable during the tested journey.`
 
 Example wording to avoid:
+
 - `Application tracking is missing.`
 
 ### Module 3 — Technology Stack Detector
 
 Purpose:
+
 - Detect the observable MarTech, AdTech, analytics, consent, experimentation, and experience stack.
 
 Likely categories:
+
 - Analytics: Adobe Analytics, GA4, etc.
 - Tag management: GTM, Adobe Launch, Tealium, Segment.
 - Consent: OneTrust, Cookiebot, etc.
@@ -95,6 +109,7 @@ Likely categories:
 - Application systems: portals, third-party booking systems, Eventbrite, Calendly, iframe tools.
 
 Primary outputs:
+
 - Technology inventory.
 - Vendor confidence level.
 - Evidence source for each vendor.
@@ -102,11 +117,13 @@ Primary outputs:
 ### Module 4 — Digital Maturity Engine
 
 Purpose:
+
 - Convert external and internal audit evidence into a structured maturity score.
 
 The scoring framework should start deterministic/rules-based, not AI-led.
 
 Proposed scoring categories:
+
 - Journey Measurement Coverage.
 - Tracking Quality.
 - Attribution Readiness.
@@ -117,6 +134,7 @@ Proposed scoring categories:
 - Reporting Readiness.
 
 Example score logic:
+
 - Consent platform observed: positive signal.
 - Cross-domain journey detected: positive business complexity signal.
 - Same tracking vendor visible across journey stages: positive signal.
@@ -125,14 +143,17 @@ Example score logic:
 - Iframes used for key conversion actions: complexity/risk signal.
 
 Primary output:
+
 - `maturity-score.json`
 
 ### Module 5 — Internal Audit Engine
 
 Purpose:
+
 - Validate, enrich, and correct external findings once access is granted.
 
 Planned inputs:
+
 - GA4 Admin/API data.
 - GTM container export/API data.
 - Google Ads conversion setup.
@@ -140,6 +161,7 @@ Planned inputs:
 - Client documentation: measurement plans, data dictionaries, naming standards, implementation logs.
 
 GTM data to capture:
+
 - Tags.
 - Triggers.
 - Variables.
@@ -151,6 +173,7 @@ GTM data to capture:
 - Platform ownership.
 
 GA4 data to capture:
+
 - Events.
 - Key events/conversions.
 - Custom dimensions.
@@ -163,19 +186,23 @@ GA4 data to capture:
 - Consent settings where available.
 
 Primary output:
+
 - `internal-audit.json`
 
 ### Module 6 — Automated Report Generator
 
 Purpose:
+
 - Convert structured audit outputs into standardised client deliverables.
 
 Near-term outputs:
+
 - Google Sheets audit workbook.
 - Google Slides diagnostic deck.
 - DOCX/PDF report.
 
 Google Slides deck sections:
+
 - Executive summary.
 - Website/journey overview.
 - Key journeys tested.
@@ -202,6 +229,7 @@ This matters because external audits can only observe part of the truth. Interna
 Benchmarking should be retained as a future moat.
 
 Every completed audit should be saved in a normalised format so the product can compare future clients against:
+
 - Industry averages.
 - Business model averages.
 - Platform maturity averages.
@@ -215,12 +243,14 @@ Example future insight:
 ## Target Users
 
 Primary internal users:
+
 - Analytics consultants.
 - Performance marketers.
 - Paid media specialists.
 - Agency account leads.
 
 External buyers:
+
 - Marketing leads.
 - Digital leads.
 - Heads of performance.
@@ -232,6 +262,7 @@ External buyers:
 The immediate build priority is Module 1.
 
 Build the Journey Mapper first because:
+
 - It supports external audits before client access is granted.
 - It matches the current UNSW prospecting workflow.
 - It creates evidence that can feed Modules 2 and 3.
@@ -248,6 +279,7 @@ Build the Journey Mapper first because:
 ## v1 Success Criteria
 
 Given a website URL, the system can:
+
 - Discover important internal links.
 - Classify them into journey categories.
 - Visit selected journey pages using Playwright.

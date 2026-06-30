@@ -1,6 +1,6 @@
 # src
 
-This folder is for modular GapFinder application code.
+This folder is for modular Site Audit application code.
 
 Use `/scripts` for executable CLI entry points.
 Use `/src` for reusable logic.
@@ -18,6 +18,7 @@ src/
 ```
 
 Rules:
+
 - Keep modules single-purpose.
 - Do not write client-facing narrative in extraction modules.
 - Return structured data.
