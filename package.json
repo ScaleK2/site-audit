@@ -12,7 +12,7 @@
   "license": "ISC",
   "description": "Digital Maturity Assessment Platform",
   "dependencies": {
-    "docx": "^9.5.1",
+    "docx": "9.7.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
